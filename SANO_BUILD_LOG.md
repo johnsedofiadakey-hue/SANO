@@ -177,15 +177,78 @@
 
 ---
 
+---
+
+## ✅ SPRINT 3 — Firebase + Render Infrastructure (2026-05-12)
+
+Replaced Railway/PostgreSQL/Cloudflare R2 with Firebase + Render. Backend is now a thin compute layer only.
+
+### Architecture change
+**Before:** Express → Prisma → SQLite/PostgreSQL + multer/R2 + JWT auth
+**After:** Firebase Auth + Firestore + Firebase Storage on mobile; Express = rate limiter + AI proxy only
+
+### Wave 1 — Firebase config + auth service
+- [x] `src/config/firebase.ts` — DEMO_MODE guard; lazy init; exports `auth`, `db`, `storage` (null in demo)
+- [x] `src/services/auth.ts` — full rewrite: Google (`signInWithCredential`), Phone OTP, Email/Password, Magic Link, demo stubs
+
+### Wave 2 — Auth store + API interceptors + root layout
+- [x] `src/store/authStore.ts` — rewritten: Firebase `User` object instead of JWT token; removed `hydrate()`
+- [x] `src/services/api.ts` — interceptor now reads Firebase ID token via `user.getIdToken()` instead of AsyncStorage JWT
+- [x] `app/_layout.tsx` — replaced `hydrateAuth()` with `authService.onAuthChange()` Firebase listener
+- [x] `app/(auth)/welcome.tsx` — Phone modal, Email modal, Google handler (with Expo Go alert), Facebook stub
+
+### Wave 3 — Firestore + Storage services
+- [x] `src/services/firestore.ts` — new: full CRUD for users, scans, health events, cycle logs, routines, consent log, analytics events; all methods no-op/return mock in DEMO_MODE
+- [x] `src/services/storageService.ts` — new: Firebase Storage upload with progress; UUID filenames; DEMO_MODE guard
+
+### Wave 4 — Data collection pipeline
+- [x] `src/hooks/useDataCollection.ts` — offline queue flushes to `firestoreService.logAnalyticsEvent()` instead of backend POST; DEMO_MODE guard added
+
+### Wave 5 — Backend simplified
+- [x] `backend/src/index.ts` — stripped to scans router + health endpoints only; removed auth/health/users/products/analytics routers
+- [x] `backend/src/routes/scans.ts` — rewritten: POST /analyze proxies to sano-ai; no Prisma; mobile saves scan to Firestore directly
+- [x] `backend/src/middleware/auth.ts` — rewritten: Firebase Admin ID token verification; local dev allows all with dev user stub
+- [x] `backend/src/middleware/rateLimit.ts` — now reads subscription tier from Firestore; same limits (free=3, plus=20, pro=10000)
+- [x] `backend/src/keepWarm.ts` — new: pings /health on self + sano-ai every 10 min in production
+- [x] `backend/package.json` — removed: @prisma/client, prisma, bcryptjs, jsonwebtoken, multer; added: firebase-admin@13.9.0
+- [x] Deleted: `backend/src/routes/auth.ts`, `health.ts`, `users.ts`, `products.ts`, `analytics.ts`
+- [x] Deleted: `backend/prisma/` (schema, migrations, dev.db)
+
+### Wave 6 — Render configs + security rules
+- [x] `backend/render.yaml` — Render deploy config for Express service
+- [x] `sano-ai/render.yaml` — Render deploy config for Python AI service
+- [x] `firestore.rules` — users own their data; scans/health events no delete; consent log immutable; analytics write-only
+- [x] `storage.rules` — authenticated write only, max 10 MB, image/* only; all else denied
+
+### Wave 7 — Documentation
+- [x] `.env.example` — updated: removed Railway/R2 vars; added Firebase vars; added Render URLs
+- [x] `FIREBASE_SETUP.md` — new: 7-step guide (create project, auth, Firestore europe-west1, Storage, Admin SDK, go live)
+- [x] `RENDER_SETUP.md` — new: Express + Python deploy guide, keep-warm via cron-job.org
+- [x] `SANO_HANDOFF.md` — full rewrite: Firebase/Render architecture, priority key guide, step-by-step go-live
+
+### Decisions made (Sprint 3)
+
+1. **Firebase web SDK, not @react-native-firebase**: Web SDK works in Expo Go managed workflow. `@react-native-firebase` requires `expo prebuild` + native builds. Documented in FIREBASE_SETUP.md.
+2. **`signInWithCredential` for Google**: `signInWithPopup` is browser-only and doesn't work in React Native. Google sign-in still needs `expo-auth-session` to get the `idToken` — noted as known issue.
+3. **Backend holds no database**: Firestore is the source of truth. Backend verifies ID tokens and proxies to AI service. This removes the need for Prisma, PostgreSQL, JWT secrets, and bcrypt entirely.
+4. **`europe-west1` for Firestore + Storage**: Closest Firebase region to Ghana with acceptable latency. Must match — Firestore and Storage must be in the same region.
+5. **DEMO_MODE guard at `firebase.ts` level**: When `EXPO_PUBLIC_DEMO_MODE=true`, Firebase is never initialized. All services return mock data or no-op. Demo always works with zero config.
+6. **Keep-warm strategy**: `keepWarm.ts` pings every 10 min in production. External cron-job.org recommended as safety net. Free Render services spin down after 15 min of inactivity.
+7. **Scan images use random UUIDs**: Never stored under user IDs. Storage path: `scans/<uuid>.jpg`. Privacy by design.
+8. **Consent log is immutable**: Firestore rules deny update + delete on `consent_log`. Once written, it can't be modified.
+
+---
+
 ## Next steps (not yet built)
 
-- [ ] Real-time AI model integration (replace mock responses)
+- [ ] Real-time AI model integration (replace mock responses with real models)
+- [ ] `expo-auth-session` Google sign-in flow for Expo Go
 - [ ] Flutterwave MoMo payment flow
 - [ ] Stripe payment flow (diaspora)
 - [ ] Push notification scheduling (cycle reminders, scan follow-up)
 - [ ] Doctor consultation booking flow
 - [ ] PDF report generation
 - [ ] BLE peripheral connection (SANO wristband)
-- [ ] Google/Facebook OAuth implementation
 - [ ] End-to-end test suite
 - [ ] CI/CD pipeline (EAS Build)
+- [ ] KATH malaria model validation → replace stub with real model

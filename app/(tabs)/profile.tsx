@@ -33,7 +33,7 @@ const SETTINGS_ROWS = [
 export default function ProfileScreen() {
   const router = useRouter();
   const { name, glowScore, fitzpatrick } = useProfileStore();
-  const { logout } = useAuthStore();
+  const { signOut: logout } = useAuthStore();
   const { scans } = useScanStore();
 
   const displayName = name || 'SANO User';
