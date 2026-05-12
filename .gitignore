@@ -39,3 +39,20 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Backend
+backend/node_modules/
+backend/dist/
+
+# AI service
+sano-ai/__pycache__/
+sano-ai/*.pyc
+sano-ai/models/*.pt
+sano-ai/models/*.pth
+sano-ai/.venv/
+sano-ai/venv/

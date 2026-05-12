@@ -1,0 +1,62 @@
+<View>
+  <Image name="image" value="$image"/>
+
+  <Header value="1. Select detected condition(s)"/>
+  <Choices name="conditions" toName="image"
+           choice="multiple" showInLine="true">
+    <Choice value="hyperpigmentation"/>
+    <Choice value="post_inflammatory_hyperpigmentation"/>
+    <Choice value="acne_active"/>
+    <Choice value="acne_marks"/>
+    <Choice value="razor_bumps_pfb"/>
+    <Choice value="eczema"/>
+    <Choice value="keloid"/>
+    <Choice value="fungal_ringworm"/>
+    <Choice value="vitiligo"/>
+    <Choice value="melasma"/>
+    <Choice value="sun_damage"/>
+    <Choice value="oiliness"/>
+    <Choice value="dryness"/>
+    <Choice value="healthy_clear"/>
+  </Choices>
+
+  <Header value="2. Fitzpatrick skin tone"/>
+  <Choices name="fitzpatrick" toName="image" choice="single">
+    <Choice value="I"/>
+    <Choice value="II"/>
+    <Choice value="III"/>
+    <Choice value="IV"/>
+    <Choice value="V"/>
+    <Choice value="VI"/>
+  </Choices>
+
+  <Header value="3. Severity (1=minimal, 10=severe)"/>
+  <Rating name="severity" toName="image" maxRating="10"/>
+
+  <Header value="4. Image quality"/>
+  <Choices name="quality" toName="image" choice="single">
+    <Choice value="good"/>
+    <Choice value="acceptable"/>
+    <Choice value="reject_blurry"/>
+    <Choice value="reject_bad_lighting"/>
+    <Choice value="reject_not_skin"/>
+  </Choices>
+
+  <Header value="5. Body area"/>
+  <Choices name="area" toName="image" choice="single">
+    <Choice value="face_full"/>
+    <Choice value="face_jawline"/>
+    <Choice value="face_forehead"/>
+    <Choice value="face_cheeks"/>
+    <Choice value="neck"/>
+    <Choice value="chest"/>
+    <Choice value="arms_forearm"/>
+    <Choice value="hands"/>
+    <Choice value="back"/>
+    <Choice value="legs"/>
+  </Choices>
+
+  <TextArea name="notes" toName="image"
+            placeholder="Optional: additional notes for this image"
+            rows="2"/>
+</View>
