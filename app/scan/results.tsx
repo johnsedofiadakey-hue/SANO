@@ -150,10 +150,9 @@ export default function ResultsScreen() {
             </View>
           </View>
           <Text style={styles.aiText}>
-            Your scan shows {topCondition.name} on your {areaLabel.toLowerCase()} with{' '}
-            {Math.round(topCondition.severity * 100)}% severity. This is common in Fitzpatrick
-            types 4–6 and responds well to consistent topical treatment. Early intervention
-            prevents deeper hyperpigmentation.
+            The analysis suggests potential {topCondition.name} on your {areaLabel.toLowerCase()} with{' '}
+            {Math.round(topCondition.severity * 100)}% severity. This is commonly observed in Fitzpatrick
+            types 4–6. Consider consulting a dermatologist for a professional evaluation.
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/features/chat')}
@@ -234,6 +233,17 @@ export default function ResultsScreen() {
             <Text style={styles.pdfLinkText}>Generate PDF report →</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Medical Disclaimer */}
+        <Card variant="tint" style={[styles.infoCard, { backgroundColor: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.2)', gap: spacing.sm }]}>
+          <View style={styles.infoHeader}>
+            <Text style={styles.infoEmoji}>⚠️</Text>
+            <Text style={[styles.infoTitle, { color: colors.red }]}>Medical Disclaimer</Text>
+          </View>
+          <Text style={[styles.itemText, { fontSize: fontSize.sm, color: colors.t2 }]}>
+            SANO is an AI-powered educational tool and does NOT provide medical diagnoses. The results shown are suggestions based on image analysis and should not replace professional medical advice, diagnosis, or treatment. Always seek the advice of a qualified healthcare provider with any questions you may have regarding a medical condition.
+          </Text>
+        </Card>
 
         <View style={{ height: spacing.xxxl }} />
       </ScrollView>
