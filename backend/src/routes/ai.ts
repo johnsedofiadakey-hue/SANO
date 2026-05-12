@@ -1,17 +1,10 @@
 import express from 'express';
+import Anthropic from '@anthropic-ai/sdk';
 
 const router = express.Router();
 const ANTHROPIC_READY = !!process.env.ANTHROPIC_API_KEY;
 
-let anthropic: any = null;
-if (ANTHROPIC_READY) {
-  try {
-    const Anthropic = require('@anthropic-ai/sdk');
-    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  } catch {
-    console.log('⚠ @anthropic-ai/sdk not installed yet');
-  }
-}
+const anthropic = ANTHROPIC_READY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
 const buildSystemPrompt = (userContext: any) => `
 You are SANO AI, a caring skin health assistant built for Ghanaian and African users.
@@ -44,7 +37,7 @@ router.post('/chat', async (req, res) => {
     ];
 
     const result = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-3-sonnet-20240229',
       max_tokens: 300,
       system: buildSystemPrompt(userContext),
       messages,
