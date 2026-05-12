@@ -10,7 +10,8 @@
     "build:preview": "eas build --profile preview --platform all",
     "build:ios": "eas build --profile preview --platform ios",
     "build:android": "eas build --profile preview --platform android",
-    "check:env": "node ../scripts/check-env.js"
+    "check:env": "node ../scripts/check-env.js",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": "20.x"
