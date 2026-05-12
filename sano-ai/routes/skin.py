@@ -125,7 +125,7 @@ def get_mock_result(area: str) -> dict:
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
-@router.post("/analyze/skin")
+@router.post("/skin")
 async def analyze_skin(request: ScanRequest):
     start = time.time()
 
@@ -181,6 +181,7 @@ async def analyze_skin(request: ScanRequest):
         return {
             "scan_id": str(uuid.uuid4()),
             "conditions": conditions[:3],
+            "skin_tone": request.skin_tone,
             "skin_tone_detected": request.skin_tone,
             "model_version": "DermaAI-v1.0",
             "confidence": top["confidence"],

@@ -43,7 +43,12 @@ router.post('/chat', async (req, res) => {
       messages,
     });
 
-    res.json({ response: result.content[0].text });
+    const block = result.content[0];
+    if (block.type === 'text') {
+      res.json({ response: block.text });
+    } else {
+      res.json({ response: 'I received a non-text response from the AI.' });
+    }
   } catch (err: any) {
     res.status(500).json({
       error: 'AI service error',

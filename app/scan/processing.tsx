@@ -206,7 +206,7 @@ export default function ProcessingScreen() {
       mounted.current = false;
       clearInterval(stepInterval);
       clearInterval(progressInterval);
-      clearTimeout(timer);
+      if (navTimer.current) clearTimeout(navTimer.current);
     };
   }, []);
 

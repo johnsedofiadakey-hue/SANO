@@ -48,16 +48,16 @@ export const useScanStore = create<ScanState>((set, get) => ({
         const uid = auth?.currentUser?.uid;
         if (uid) {
           await firestoreService.saveScan(uid, {
-            imageStoragePath: scan.imageUri ?? '',
-            skinTone: scan.skinTone ?? 5,
-            conditions: (scan.conditions ?? []) as unknown[],
-            area: scan.area ?? 'face',
-            cycleDay: null,
-            region: 'Greater Accra',
-            season: getSeason(),
-            phoneModel: 'Unknown',
-            modelVersion: scan.modelVersion ?? 'v1',
-            confidence: scan.confidence ?? 0,
+            imageStoragePath: (scan as any).imageUri ?? '',
+            skinTone: scan.skin_tone ?? 5,
+            conditions: (scan.conditions_detected ?? []) as unknown[],
+            area: scan.body_area ?? 'face',
+            cycleDay: scan.cycle_day ?? null,
+            region: scan.region ?? 'Greater Accra',
+            season: scan.season ?? getSeason(),
+            phoneModel: scan.phone_model ?? 'Unknown',
+            modelVersion: scan.model_version ?? 'v1',
+            confidence: scan.conditions_detected?.[0]?.confidence ?? 0,
           });
         }
       } catch (e) {

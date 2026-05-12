@@ -20,6 +20,9 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
     console.log(`Forwarding scan to AI service at ${AI_SERVICE_URL}/analyze/skin`);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+
     const response = await fetch(`${AI_SERVICE_URL}/analyze/skin`, {
       method: 'POST',
       headers: {
@@ -30,7 +33,10 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         image_base64: imageBase64,
         area: bodyArea,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -41,6 +47,10 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.error('AI service timeout');
+      return res.status(504).json({ error: 'Gateway Timeout', message: 'AI service took too long to respond.' });
+    }
     console.error('Error in /scans/upload:', error);
     res.status(500).json({ error: 'Internal server error', message: error.message });
   }

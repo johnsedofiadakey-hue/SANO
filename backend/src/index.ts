@@ -3,6 +3,20 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
+if (process.env.NODE_ENV === 'production') {
+  const criticalKeys = [
+    'FIREBASE_ADMIN_SDK_JSON',
+    'ANTHROPIC_API_KEY',
+    'AI_SERVICE_URL',
+    'AI_SERVICE_SECRET',
+  ];
+  const missing = criticalKeys.filter(key => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(`FATAL: Missing critical environment variables for production: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 

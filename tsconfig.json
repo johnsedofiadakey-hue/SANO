@@ -1,9 +1,11 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "module": "esnext",
     "strict": false,
     "skipLibCheck": true,
     "noImplicitAny": false,
+    "allowJs": true,
     "paths": {
       "@/*": [
         "./*"
@@ -20,6 +22,7 @@
   "exclude": [
     "node_modules",
     "backend",
-    "sano-ai"
+    "sano-ai",
+    "sano-admin"
   ]
 }
