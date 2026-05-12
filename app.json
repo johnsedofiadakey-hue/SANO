@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "backgroundColor": "#7C3AED",
       "resizeMode": "contain"
@@ -15,23 +14,24 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sanohealth.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "SANO uses your camera to analyse your skin and detect conditions.",
-        "NSMicrophoneUsageDescription": "SANO uses the microphone for video scan sessions.",
-        "NSPhotoLibraryUsageDescription": "SANO accesses your photo library to upload scan images.",
-        "NSLocationWhenInUseUsageDescription": "SANO uses approximate location to find nearby pharmacies."
+        "NSCameraUsageDescription": "SANO needs camera access to scan your skin",
+        "NSMicrophoneUsageDescription": "SANO needs microphone access for cough analysis",
+        "NSPhotoLibraryUsageDescription": "SANO needs photo access to save your scan results"
       }
     },
     "android": {
+      "package": "com.sanohealth.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#7C3AED"
       },
-      "package": "com.sanohealth.app",
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {

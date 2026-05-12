@@ -90,7 +90,7 @@ function ConfettiPiece({ index, active, x, size }: {
   }, [active, delay, index, opacity, rotate, translateY]);
 
   const animStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { rotate: `${rotate.value}deg` }],
+    transform: [{ translateY: translateY.value }, { rotate: `${rotate.value}deg` }] as any,
     opacity: opacity.value,
   }));
 
