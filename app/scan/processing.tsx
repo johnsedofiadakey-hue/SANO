@@ -138,10 +138,12 @@ export default function ProcessingScreen() {
 
   const [stepIndex, setStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  const navTimer = useRef<NodeJS.Timeout>();
 
   const { setCurrentResult, setProcessing } = useScanStore();
-  const { logScan } = useDataCollection();
+  const { logScanCompleted: logScan } = useDataCollection();
 
   useEffect(() => {
     mounted.current = true;
@@ -169,24 +171,14 @@ export default function ProcessingScreen() {
         if (mounted.current) setCurrentResult(result);
 
         await logScan(imageUri, result).catch(() => {});
-      } catch {
-        // On error still navigate with mock data
+      } catch (err: any) {
+        console.error('Scan upload failed:', err);
         if (mounted.current) {
-          setCurrentResult({
-            scan_id: MOCK_SCAN_RESULT.scanId,
-            conditions: [
-              {
-                name: MOCK_SCAN_RESULT.primaryCondition.name,
-                location: MOCK_SCAN_RESULT.primaryCondition.location,
-                severity: MOCK_SCAN_RESULT.primaryCondition.severity / 10,
-                confidence: MOCK_SCAN_RESULT.primaryCondition.confidence / 100,
-                doctor_confirmed: false,
-              },
-            ],
-            skin_tone: 5,
-            model_version: 'v0.1-mock',
-            processing_time_ms: 0,
-          });
+          setError(err.message || 'Analysis failed. Please try again.');
+          setProcessing(false);
+          if (navTimer.current) clearTimeout(navTimer.current);
+          clearInterval(stepInterval);
+          clearInterval(progressInterval);
         }
       }
     };
@@ -194,8 +186,10 @@ export default function ProcessingScreen() {
     doUpload();
 
     // Navigate after 3.2s regardless
-    const timer = setTimeout(() => {
+    navTimer.current = setTimeout(() => {
       if (!mounted.current) return;
+      if (error) return; // Don't navigate if there was an error
+
       clearInterval(stepInterval);
       clearInterval(progressInterval);
       setProgress(100);
@@ -231,7 +225,11 @@ export default function ProcessingScreen() {
 
         <Text style={styles.headline}>Analysing your skin</Text>
 
-        <Text style={styles.stepText}>{STEPS[stepIndex]}</Text>
+        {error ? (
+          <Text style={[styles.stepText, { color: '#FF6B6B' }]}>{error}</Text>
+        ) : (
+          <Text style={styles.stepText}>{STEPS[stepIndex]}</Text>
+        )}
 
         <ProgressBar progress={progress} />
 

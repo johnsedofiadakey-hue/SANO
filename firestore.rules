@@ -11,7 +11,8 @@ service cloud.firestore {
     match /scans/{scanId} {
       allow read:   if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['doctorConfirmed', 'queuedForLabel', 'modelVersion', 'condition']);
       allow delete: if false;
     }
 
