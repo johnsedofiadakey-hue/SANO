@@ -15,7 +15,6 @@
       "bundleIdentifier": "com.sanohealth.app",
       "infoPlist": {
         "NSCameraUsageDescription": "SANO needs camera access to scan your skin",
-        "NSMicrophoneUsageDescription": "SANO needs microphone access for cough analysis",
         "NSPhotoLibraryUsageDescription": "SANO needs photo access to save your scan results"
       }
     },
@@ -27,7 +26,6 @@
       },
       "permissions": [
         "CAMERA",
-        "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "VIBRATE",
@@ -45,7 +43,9 @@
         {
           "color": "#7C3AED"
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-secure-store"
     ],
     "scheme": "sano",
     "experiments": {

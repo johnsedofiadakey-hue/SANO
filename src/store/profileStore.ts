@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import type { Fitzpatrick, SkinConcern, SkinGoal } from '../types/user';
 
 const STORAGE_KEY = 'sano_profile';
@@ -11,11 +11,15 @@ interface ProfileState {
   name: string;
   glowScore: number;
   streakDays: number;
+  cycleTracking: boolean;
+  undertone: 'warm' | 'cool' | 'neutral' | null;
   setFitzpatrick: (tone: Fitzpatrick) => void;
   setSkinConcerns: (concerns: SkinConcern[]) => void;
   toggleSkinConcern: (concern: SkinConcern) => void;
   setSkinGoal: (goal: SkinGoal) => void;
   setName: (name: string) => void;
+  setCycleTracking: (val: boolean) => void;
+  setUndertone: (val: 'warm' | 'cool' | 'neutral') => void;
   persist: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
@@ -27,6 +31,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   name: '',
   glowScore: 74,
   streakDays: 7,
+  cycleTracking: false,
+  undertone: null,
 
   setFitzpatrick: (tone) => set({ fitzpatrick: tone }),
   setSkinConcerns: (concerns) => set({ skinConcerns: concerns }),
@@ -43,17 +49,23 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   setSkinGoal: (goal) => set({ skinGoal: goal }),
   setName: (name) => set({ name }),
+  setCycleTracking: (val) => set({ cycleTracking: val }),
+  setUndertone: (val) => set({ undertone: val }),
 
   persist: async () => {
-    const { fitzpatrick, skinConcerns, skinGoal, name } = get();
+    const { fitzpatrick, skinConcerns, skinGoal, name, cycleTracking, undertone } = get();
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ fitzpatrick, skinConcerns, skinGoal, name }));
-    } catch {}
+      await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify({
+        fitzpatrick, skinConcerns, skinGoal, name, cycleTracking, undertone,
+      }));
+    } catch (e) {
+      console.error('Failed to persist profile:', e);
+    }
   },
 
   hydrate: async () => {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const raw = await SecureStore.getItemAsync(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<ProfileState>;
         set({
@@ -61,8 +73,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
           skinConcerns: saved.skinConcerns ?? [],
           skinGoal: saved.skinGoal ?? null,
           name: saved.name ?? '',
+          cycleTracking: saved.cycleTracking ?? false,
+          undertone: saved.undertone ?? null,
         });
       }
-    } catch {}
+    } catch (e) {
+      console.error('Failed to hydrate profile:', e);
+    }
   },
 }));

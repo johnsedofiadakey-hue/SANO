@@ -24,6 +24,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-AI-Secret-Token': process.env.AI_SERVICE_SECRET || '',
       },
       body: JSON.stringify({
         image_base64: imageBase64,

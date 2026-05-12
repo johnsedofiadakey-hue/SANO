@@ -35,6 +35,28 @@ if (firebaseAdminJson) {
   console.log('⚠ FIREBASE_ADMIN_SDK_JSON missing — auth verification disabled');
 }
 
+const authenticate = async (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized', message: 'No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const admin = require('firebase-admin');
+    if (admin.apps.length === 0) {
+      console.warn('Firebase Admin not initialized — skipping token verification (UNSAFE)');
+      return next();
+    }
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error: any) {
+    console.error('Token verification failed:', error.message);
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
+  }
+};
+
 app.get('/', (_req, res) => {
   res.json({ service: 'SANO API', status: 'running', version: '1.0.0', timestamp: new Date().toISOString() });
 });
@@ -47,7 +69,7 @@ app.get('/health', (_req, res) => {
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const aiRoutes = require('./routes/ai').default;
-  app.use('/ai', aiRoutes);
+  app.use('/ai', authenticate, aiRoutes);
   console.log('✓ AI routes loaded');
 } catch (e: any) {
   console.log('⚠ AI routes skipped:', e.message);
@@ -56,7 +78,7 @@ try {
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const scanRoutes = require('./routes/scans').default;
-  app.use('/scans', scanRoutes);
+  app.use('/scans', authenticate, scanRoutes);
   console.log('✓ Scan routes loaded');
 } catch (e: any) {
   console.log('⚠ Scan routes skipped:', e.message);

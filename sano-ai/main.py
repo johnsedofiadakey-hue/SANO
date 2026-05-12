@@ -1,12 +1,24 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from routes import skin, foundation, vitals, malaria
+import os
 
-app = FastAPI(title="SANO AI Service", version="0.1.0")
+def verify_secret(x_ai_secret_token: str = Header(None)):
+    secret = os.getenv("AI_SERVICE_SECRET")
+    if not secret:
+        return
+    if x_ai_secret_token != secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+app = FastAPI(
+    title="SANO AI Service", 
+    version="0.1.0",
+    dependencies=[Depends(verify_secret)]
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://sano-s32p.onrender.com"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

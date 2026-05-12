@@ -1,9 +1,10 @@
-from fastapi import APIRouter, File, UploadFile, Form
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import uuid
 import time
 import random
+import os
 
 router = APIRouter()
 
@@ -57,32 +58,20 @@ MOCK_CONDITIONS: dict[str, list[SkinCondition]] = {
 }
 
 
+MODEL_PATH = "models/DermaAI.keras"
+
 @router.post("/skin", response_model=SkinAnalyseResponse)
 async def analyse_skin(
     body_area: str = Form(default="face"),
     image: Optional[UploadFile] = File(default=None),
     image_base64: Optional[str] = Form(default=None),
 ) -> SkinAnalyseResponse:
-    start = time.time()
-
-    # Simulate model inference time
-    time.sleep(random.uniform(0.5, 1.5))
-
-    area_key = body_area.lower().replace(" ", "_")
-    conditions = MOCK_CONDITIONS.get(area_key, MOCK_CONDITIONS["default"])
-
-    # Skin tone varies slightly per call for realism
-    skin_tone = random.choice([4, 5, 5, 5, 6])
-
-    processing_ms = int((time.time() - start) * 1000)
-
-    return SkinAnalyseResponse(
-        scan_id=str(uuid.uuid4()),
-        conditions=conditions,
-        skin_tone=skin_tone,
-        model_version="v0.1-mock",
-        processing_time_ms=processing_ms,
-    )
+    if not os.path.exists(MODEL_PATH):
+        raise HTTPException(status_code=503, detail="Model file not found. Service unavailable.")
+        
+    # TODO: Implement real model inference.
+    # We return a 501 Not Implemented instead of fake data to reflect production readiness.
+    raise HTTPException(status_code=501, detail="Model inference not yet implemented. Real analysis unavailable.")
 
 
 # Legacy endpoint alias
