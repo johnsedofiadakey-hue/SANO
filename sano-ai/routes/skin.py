@@ -1,84 +1,197 @@
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
-from pydantic import BaseModel
-from typing import Optional
-import uuid
+import asyncio
+import base64
 import time
-import random
-import os
+import uuid
+from pathlib import Path
+from typing import Optional
+
+import cv2
+import numpy as np
+import tensorflow as tf
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+from class_labels import (
+    SANO_CONDITION_MAP,
+    estimate_severity,
+    get_condition_labels,
+)
 
 router = APIRouter()
 
-
-class SkinCondition(BaseModel):
-    name: str
-    severity: float
-    confidence: float
-    location: str
-    doctor_confirmed: bool = False
+# ── Model state (loaded once at startup) ─────────────────────────────────────
+MODEL = None
+MODEL_INPUT_SIZE = (224, 224)
+CONDITION_LABELS: list[str] = []
 
 
-class SkinAnalyseResponse(BaseModel):
-    scan_id: str
-    conditions: list[SkinCondition]
-    skin_tone: int
-    model_version: str
-    processing_time_ms: int
+def load_model() -> None:
+    global MODEL, MODEL_INPUT_SIZE, CONDITION_LABELS
+
+    model_path = Path("models/DermaAI.keras")
+    if not model_path.exists():
+        print("⚠  DermaAI.keras not found — running in mock mode")
+        return
+
+    try:
+        print("Loading DermaAI.keras …")
+        MODEL = tf.keras.models.load_model(str(model_path))
+
+        input_shape = MODEL.input_shape          # (None, H, W, C)
+        if len(input_shape) == 4:
+            _, h, w, _ = input_shape
+            MODEL_INPUT_SIZE = (int(h), int(w))
+
+        num_classes = int(MODEL.output_shape[-1])
+        CONDITION_LABELS = get_condition_labels(num_classes)
+
+        print(
+            f"✓ DermaAI loaded — input {MODEL_INPUT_SIZE}, "
+            f"{num_classes} classes: {CONDITION_LABELS}"
+        )
+    except Exception as exc:
+        print(f"✗ Model load failed: {exc}")
+        MODEL = None
 
 
-MOCK_CONDITIONS: dict[str, list[SkinCondition]] = {
-    "face": [
-        SkinCondition(name="hyperpigmentation", severity=0.68, confidence=0.91, location="jawline"),
-        SkinCondition(name="post_inflammatory_hyperpigmentation", severity=0.55, confidence=0.84, location="cheeks"),
-        SkinCondition(name="mild_oiliness", severity=0.32, confidence=0.77, location="t-zone"),
-    ],
-    "face_jawline": [
-        SkinCondition(name="razor_bumps_pfb", severity=0.71, confidence=0.89, location="jawline"),
-        SkinCondition(name="hyperpigmentation", severity=0.48, confidence=0.82, location="jawline"),
-    ],
-    "face_forehead": [
-        SkinCondition(name="acne_active", severity=0.44, confidence=0.86, location="forehead"),
-        SkinCondition(name="oiliness", severity=0.58, confidence=0.81, location="forehead"),
-    ],
-    "neck": [
-        SkinCondition(name="razor_bumps_pfb", severity=0.54, confidence=0.85, location="neck"),
-        SkinCondition(name="hyperpigmentation", severity=0.38, confidence=0.74, location="neck"),
-    ],
-    "chest": [
-        SkinCondition(name="acne_marks", severity=0.41, confidence=0.80, location="chest"),
-        SkinCondition(name="eczema", severity=0.22, confidence=0.71, location="chest"),
-    ],
-    "arms_forearm": [
-        SkinCondition(name="eczema", severity=0.38, confidence=0.83, location="inner forearm"),
-        SkinCondition(name="dryness", severity=0.52, confidence=0.88, location="forearm"),
-    ],
-    "default": [
-        SkinCondition(name="hyperpigmentation", severity=0.45, confidence=0.82, location="general"),
-        SkinCondition(name="dryness", severity=0.31, confidence=0.75, location="general"),
-    ],
-}
+load_model()
 
 
-MODEL_PATH = "models/DermaAI.keras"
+# ── Request / response schemas ────────────────────────────────────────────────
 
-@router.post("/skin", response_model=SkinAnalyseResponse)
-async def analyse_skin(
-    body_area: str = Form(default="face"),
-    image: Optional[UploadFile] = File(default=None),
-    image_base64: Optional[str] = Form(default=None),
-) -> SkinAnalyseResponse:
-    if not os.path.exists(MODEL_PATH):
-        raise HTTPException(status_code=503, detail="Model file not found. Service unavailable.")
-        
-    # TODO: Implement real model inference.
-    # We return a 501 Not Implemented instead of fake data to reflect production readiness.
-    raise HTTPException(status_code=501, detail="Model inference not yet implemented. Real analysis unavailable.")
+class ScanRequest(BaseModel):
+    image_base64: str
+    skin_tone: Optional[int] = 5
+    area: Optional[str] = "face"
 
 
-# Legacy endpoint alias
-@router.post("/analyse", response_model=SkinAnalyseResponse)
-async def analyse_skin_legacy(
-    body_area: str = Form(default="face"),
-    image: Optional[UploadFile] = File(default=None),
-    image_base64: Optional[str] = Form(default=None),
-) -> SkinAnalyseResponse:
-    return await analyse_skin(body_area=body_area, image=image, image_base64=image_base64)
+# ── Image processing ──────────────────────────────────────────────────────────
+
+def preprocess_image(image_base64: str, target_size: tuple) -> np.ndarray:
+    img_bytes = base64.b64decode(image_base64)
+    img_array = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
+    if img is None:
+        raise ValueError("Could not decode image")
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, target_size)
+    img = img.astype(np.float32) / 255.0
+    return np.expand_dims(img, axis=0)
+
+
+def apply_dark_skin_correction(
+    predictions: np.ndarray, skin_tone: int
+) -> np.ndarray:
+    """
+    Boost hyperpigmentation sensitivity for Fitzpatrick 4–6.
+    Most CNN dermatology models were trained on majority light-skin
+    datasets and systematically underdetect conditions on dark skin.
+    """
+    if skin_tone < 4:
+        return predictions
+
+    corrected = predictions.copy()
+    for i, label in enumerate(CONDITION_LABELS):
+        if "Hyperpigmentation" in label or "Razor" in label:
+            boost = 0.12 * (skin_tone - 3) / 3
+            corrected[0][i] = min(corrected[0][i] + boost, 1.0)
+
+    corrected[0] = corrected[0] / corrected[0].sum()
+    return corrected
+
+
+# ── Mock fallback ─────────────────────────────────────────────────────────────
+
+def get_mock_result(area: str) -> dict:
+    return {
+        "conditions": [
+            {
+                "name": "hyperpigmentation",
+                "display_name": "Hyperpigmentation",
+                "confidence": 0.91,
+                "severity": 0.68,
+                "location": area,
+                "doctor_confirmed": False,
+            }
+        ],
+        "skin_tone_detected": 5,
+        "model_version": "v0.1-mock",
+        "mock": True,
+        "processing_time_ms": 800,
+    }
+
+
+# ── Endpoint ──────────────────────────────────────────────────────────────────
+
+@router.post("/analyze/skin")
+async def analyze_skin(request: ScanRequest):
+    start = time.time()
+
+    if MODEL is None:
+        await asyncio.sleep(0.8)
+        result = get_mock_result(request.area or "face")
+        result["scan_id"] = str(uuid.uuid4())
+        return result
+
+    try:
+        img = preprocess_image(request.image_base64, MODEL_INPUT_SIZE)
+        raw = MODEL.predict(img, verbose=0)
+        preds = apply_dark_skin_correction(raw, request.skin_tone or 5)
+        flat = preds[0]
+
+        conditions = []
+        for i, conf in enumerate(flat):
+            if conf > 0.10 and i < len(CONDITION_LABELS):
+                raw_name = CONDITION_LABELS[i]
+                sano_name = SANO_CONDITION_MAP.get(
+                    raw_name,
+                    raw_name.lower().replace(" ", "_"),
+                )
+                if sano_name != "healthy_clear":
+                    conditions.append(
+                        {
+                            "name": sano_name,
+                            "display_name": raw_name,
+                            "confidence": float(conf),
+                            "severity": estimate_severity(float(conf)),
+                            "location": request.area,
+                            "doctor_confirmed": False,
+                        }
+                    )
+
+        conditions.sort(key=lambda x: x["confidence"], reverse=True)
+
+        if not conditions:
+            conditions = [
+                {
+                    "name": "healthy_clear",
+                    "display_name": "Healthy Skin",
+                    "confidence": float(flat.max()),
+                    "severity": 0.0,
+                    "location": request.area,
+                    "doctor_confirmed": False,
+                }
+            ]
+
+        ms = int((time.time() - start) * 1000)
+        top = conditions[0]
+
+        return {
+            "scan_id": str(uuid.uuid4()),
+            "conditions": conditions[:3],
+            "skin_tone_detected": request.skin_tone,
+            "model_version": "DermaAI-v1.0",
+            "confidence": top["confidence"],
+            "queued_for_label": top["confidence"] < 0.75,
+            "mock": False,
+            "processing_time_ms": ms,
+        }
+
+    except Exception as exc:
+        print(f"Inference error: {exc}")
+        result = get_mock_result(request.area or "face")
+        result["scan_id"] = str(uuid.uuid4())
+        result["error"] = str(exc)
+        return result
