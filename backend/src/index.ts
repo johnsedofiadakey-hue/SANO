@@ -34,10 +34,32 @@ app.use(rateLimit({
 
 // Initialize Firebase Admin
 const firebaseAdminJson = process.env.FIREBASE_ADMIN_SDK_JSON;
+let serviceAccount;
+
 if (firebaseAdminJson) {
   try {
+    serviceAccount = JSON.parse(firebaseAdminJson);
+  } catch (e: any) {
+    console.error('✗ Firebase Admin JSON parse failed:', e.message);
+  }
+}
+
+if (!serviceAccount) {
+  const secretPath = '/etc/secrets/firebase-admin-sdk.json';
+  const fs = require('fs');
+  if (fs.existsSync(secretPath)) {
+    try {
+      const fileContent = fs.readFileSync(secretPath, 'utf8');
+      serviceAccount = JSON.parse(fileContent);
+    } catch (e: any) {
+      console.error('✗ Firebase Admin file parse failed:', e.message);
+    }
+  }
+}
+
+if (serviceAccount) {
+  try {
     const admin = require('firebase-admin');
-    const serviceAccount = JSON.parse(firebaseAdminJson);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
@@ -46,7 +68,7 @@ if (firebaseAdminJson) {
     console.error('✗ Firebase Admin init failed:', e.message);
   }
 } else {
-  console.log('⚠ FIREBASE_ADMIN_SDK_JSON missing — auth verification disabled');
+  console.log('⚠ Firebase Admin configuration missing — auth verification disabled');
 }
 
 const authenticate = async (req: any, res: any, next: any) => {
