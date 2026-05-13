@@ -29,9 +29,21 @@ CONDITION_LABELS: list[str] = []
 def load_model() -> None:
     global MODEL, MODEL_INPUT_SIZE, CONDITION_LABELS, IS_TFLITE
 
-    base_dir = Path(__file__).parent.parent
+    base_dir = Path(__file__).resolve().parent.parent
     tflite_path = base_dir / "models" / "DermaAI.tflite"
     model_path = base_dir / "models" / "DermaAI.keras"
+
+    print(f"DEBUG: __file__ = {__file__}")
+    print(f"DEBUG: base_dir = {base_dir}")
+    print(f"DEBUG: Checking for tflite at {tflite_path}")
+    
+    import os
+    try:
+        print(f"DEBUG: Files in base_dir: {os.listdir(str(base_dir))}")
+        if (base_dir / "models").exists():
+            print(f"DEBUG: Files in models: {os.listdir(str(base_dir / 'models'))}")
+    except Exception as e:
+        print(f"DEBUG: Failed to list dirs: {e}")
 
     if tflite_path.exists():
         try:
