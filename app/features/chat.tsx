@@ -188,8 +188,8 @@ export default function ChatScreen() {
           };
           const { data } = await api.post<{ response: string }>('/ai/chat', {
             message: text.trim(),
-            history: messages.map(msg => ({ role: msg.role, content: msg.content })),
-            context: userContext,
+            history: messages.map(msg => ({ me: msg.role === 'user', txt: msg.content })),
+            userContext,
           });
           reply = data.response;
         } catch (e: any) {
