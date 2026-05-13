@@ -14,7 +14,7 @@ export const FIREBASE_READY = !!(
 );
 
 // Kept for backwards compatibility with screens that check DEMO_MODE
-export const DEMO_MODE = !FIREBASE_READY;
+export const DEMO_MODE = !FIREBASE_READY && process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
 
 let app: any = null;
 let auth: any = null;

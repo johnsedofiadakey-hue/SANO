@@ -8,7 +8,7 @@ from typing import Optional
 import cv2
 import numpy as np
 import tensorflow as tf
-from fastapi import APIRouter
+from fastapi import APIRouter, File, UploadFile, Form
 from pydantic import BaseModel
 
 from class_labels import (

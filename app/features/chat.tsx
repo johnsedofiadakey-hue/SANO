@@ -84,7 +84,6 @@ const GREETING: Message = {
   timestamp: new Date(),
 };
 
-
 function TypingDot({ delay }: { delay: number }) {
   const y = useSharedValue(0);
 
@@ -187,11 +186,12 @@ export default function ChatScreen() {
               : null,
             scanCount: scans.length,
           };
-          const { data } = await api.post<{ reply: string }>('/ai/chat', {
+          const { data } = await api.post<{ response: string }>('/ai/chat', {
             message: text.trim(),
+            history: messages.map(msg => ({ role: msg.role, content: msg.content })),
             context: userContext,
           });
-          reply = data.reply;
+          reply = data.response;
         } catch (e: any) {
           reply = `Error: Failed to connect to AI service. (${e.message || 'Unknown error'})`;
         }
