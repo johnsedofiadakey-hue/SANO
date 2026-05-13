@@ -9,9 +9,8 @@ export const storageService = {
     imageUri: string,
     onProgress?: (progress: number) => void
   ): Promise<string> => {
-    if (DEMO_MODE || !storage) {
-      // In demo mode: return a fake storage path immediately
-      return `scans/demo_${Date.now()}.jpg`;
+    if (!storage) {
+      throw new Error('Storage not initialized');
     }
 
     const uuid = await Crypto.randomUUID();
@@ -44,8 +43,8 @@ export const storageService = {
 
   // Get a signed download URL for any stored image path
   getImageURL: async (storagePath: string): Promise<string> => {
-    if (DEMO_MODE || !storage || storagePath.startsWith('scans/demo_')) {
-      return ''; // Demo: no real image URL
+    if (!storage) {
+      return '';
     }
     const storageRef = ref(storage, storagePath);
     return getDownloadURL(storageRef);

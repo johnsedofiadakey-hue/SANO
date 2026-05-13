@@ -30,7 +30,7 @@ export const firestoreService = {
     ageGroup?: string;
     researchOptIn?: boolean;
   }): Promise<void> => {
-    if (DEMO_MODE || !db) return;
+    if (!db) return;
     await setDoc(doc(db, C.users, uid), {
       ...profile,
       subscription: 'free',
@@ -40,7 +40,7 @@ export const firestoreService = {
   },
 
   getUserProfile: async (uid: string): Promise<Record<string, unknown> | null> => {
-    if (DEMO_MODE || !db) return null;
+    if (!db) return null;
     const snap = await getDoc(doc(db, C.users, uid));
     return snap.exists() ? snap.data() : null;
   },
@@ -72,8 +72,8 @@ export const firestoreService = {
   },
 
   getUserScans: async (uid: string, limitCount = 20): Promise<unknown[]> => {
-    if (DEMO_MODE || !db) {
-      return MOCK_SCAN_HISTORY as unknown as unknown[];
+    if (!db) {
+      return [];
     }
     const q = query(
       collection(db, C.scans),
@@ -102,8 +102,8 @@ export const firestoreService = {
 
   // Real-time scan listener
   listenToUserScans: (uid: string, callback: (scans: unknown[]) => void): (() => void) => {
-    if (DEMO_MODE || !db) {
-      callback(MOCK_SCAN_HISTORY as unknown as unknown[]);
+    if (!db) {
+      callback([]);
       return () => {};
     }
     const q = query(
@@ -134,7 +134,7 @@ export const firestoreService = {
   },
 
   getRecentVitals: async (uid: string): Promise<Record<string, unknown>> => {
-    if (DEMO_MODE || !db) return MOCK_VITALS as unknown as Record<string, unknown>;
+    if (!db) return {};
     const q = query(
       collection(db, C.healthEvents),
       where('userId', '==', uid),

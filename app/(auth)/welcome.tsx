@@ -97,15 +97,9 @@ function PhoneModal({ visible, onClose, onSuccess }: { visible: boolean; onClose
     if (phone.length < 10) { Alert.alert('Enter a valid phone number'); return; }
     setLoading(true);
     try {
-      if (DEMO_MODE) {
-        setConfirmation({ confirm: async () => ({ user: { uid: 'demo' } }) });
-        setStep('otp');
-        Alert.alert('Demo Mode', 'Use code: 123456');
-      } else {
-        const result = await authService.sendPhoneOTP(phone);
-        setConfirmation(result);
-        setStep('otp');
-      }
+      const result = await authService.sendPhoneOTP(phone);
+      setConfirmation(result);
+      setStep('otp');
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Failed to send OTP');
     } finally {
@@ -137,7 +131,7 @@ function PhoneModal({ visible, onClose, onSuccess }: { visible: boolean; onClose
         </View>
         <Text style={styles.modalSub}>
           {step === 'phone'
-            ? `We'll send a one-time code.${DEMO_MODE ? '\n(Demo: any number, code is 123456)' : ''}`
+            ? "We'll send a one-time code."
             : `Code sent to ${phone}`}
         </Text>
         <TextInput
@@ -169,7 +163,6 @@ function EmailModal({ visible, onClose, onSuccess }: { visible: boolean; onClose
     if (!email || !password) { Alert.alert('Fill in both fields'); return; }
     setLoading(true);
     try {
-      if (DEMO_MODE) { onSuccess(); return; }
       if (isRegister) {
         await authService.registerWithEmail(email, password);
       } else {
@@ -238,7 +231,6 @@ export default function WelcomeScreen() {
   };
 
   const handleGoogle = async () => {
-    if (DEMO_MODE) { goToOnboarding(); return; }
     Alert.alert(
       'Google Sign-In',
       'Add your Google OAuth client ID to enable this. Continue as demo?',
@@ -345,7 +337,6 @@ export default function WelcomeScreen() {
         <Animated.Text entering={FadeInUp.delay(600).springify().damping(20)} style={styles.privacy}>
           By continuing you agree to our Terms & Privacy Policy.{'\n'}
           Your data is never sold. Built in Ghana 🇬🇭
-          {DEMO_MODE ? '\n\nDemo mode — no account required.' : ''}
         </Animated.Text>
       </ScrollView>
 

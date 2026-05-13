@@ -24,13 +24,8 @@ async def screen_malaria(
     time.sleep(random.uniform(0.5, 1.5))
     processing_ms = int((time.time() - start) * 1000)
 
-    return MalariaResponse(
-        result="negative",
-        confidence=0.0,
-        note="Model not yet loaded — awaiting KATH validation",
-        model_version="v0.1-mock",
-        processing_time_ms=processing_ms,
-    )
+    from fastapi import HTTPException
+    raise HTTPException(status_code=503, detail="Malaria model not yet loaded — awaiting KATH validation")
 
 
 # Legacy alias

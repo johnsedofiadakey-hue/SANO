@@ -29,16 +29,14 @@ async def measure_heart_rate(
 ) -> VitalsResponse:
     start = time.time()
 
-    bpm = 72
-    spo2 = 98.0
-    confidence = 0.5
-    note = "No video provided. Returning mock data."
-    model_version = "v0.1-mock"
+    if not video_file and not video_base64:
+        raise HTTPException(status_code=400, detail="No video provided.")
 
-    # If a file or base64 was provided
-    if video_file or video_base64:
-        note = "Processed video."
-        model_version = "v1.0-ppg"
+    note = "Processed video."
+    model_version = "v1.0-ppg"
+    bpm = 0
+    spo2 = 0.0
+    confidence = 0.0
         
         temp_path = f"/tmp/vitals_{int(time.time())}.mp4"
         
@@ -86,19 +84,16 @@ async def measure_heart_rate(
                     bpm = int(60 / avg_interval)
                     confidence = 0.85
                     note = "Successfully calculated heart rate from video."
+                    spo2 = 98.0 # Still fallback for SpO2 as we don't have a real SpO2 model yet
                 else:
-                    note = "Could not detect clear peaks in video."
-                    bpm = random.randint(65, 85)
-                    confidence = 0.3
+                    raise HTTPException(status_code=422, detail="Could not detect clear peaks in video.")
             else:
-                note = "Video too short or unreadable."
-                bpm = random.randint(65, 85)
-                confidence = 0.2
+                raise HTTPException(status_code=422, detail="Video too short or unreadable.")
                 
+        except HTTPException:
+            raise
         except Exception as e:
-            note = f"Error processing video: {str(e)}"
-            bpm = random.randint(65, 85)
-            confidence = 0.1
+            raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
             
         # Clean up
         if os.path.exists(temp_path):

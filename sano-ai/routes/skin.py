@@ -143,32 +143,10 @@ def apply_dark_skin_correction(
     return corrected
 
 
-# ── Mock fallback ─────────────────────────────────────────────────────────────
-
-def get_mock_result(area: str) -> dict:
-    return {
-        "conditions": [
-            {
-                "name": "hyperpigmentation",
-                "display_name": "Hyperpigmentation",
-                "confidence": 0.91,
-                "severity": 0.68,
-                "location": area,
-                "doctor_confirmed": False,
-            }
-        ],
-        "skin_tone": 5,
-        "skin_tone_detected": 5,
-        "model_version": "v0.1-mock",
-        "mock": True,
-        "processing_time_ms": 800,
-    }
 
 
 # ── Helper function ───────────────────────────────────────────────────────────
 
-def is_demo_mode() -> bool:
-    return os.getenv("SANO_DEMO_MODE") == "true" or os.getenv("ENVIRONMENT") != "production"
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -245,12 +223,7 @@ async def analyze_skin(request: ScanRequest):
         }
 
     except Exception as exc:
-        if is_demo_mode():
-            result = get_mock_result(request.area or "face")
-            result["scan_id"] = str(uuid.uuid4())
-            return result
-        else:
-            raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── Legacy alias ─────────────────────────────────────────────────────────────

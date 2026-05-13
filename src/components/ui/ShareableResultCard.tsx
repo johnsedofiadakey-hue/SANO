@@ -9,7 +9,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot from 'react-native-view-shot';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../theme';
-import { MOCK_USER } from '../../data/mockData';
+import { useAuthStore } from '../../store/authStore';
 
 interface ShareableResultCardProps {
   conditionName: string;
@@ -19,6 +19,8 @@ interface ShareableResultCardProps {
   glowScore: number;
   improving?: boolean;
   weekNumber?: number;
+  userName?: string;
+  fitzpatrick?: number;
 }
 
 function MiniRing({ value, max = 10 }: { value: number; max?: number }) {
@@ -60,9 +62,14 @@ export function ShareableResultCard({
   glowScore,
   improving = true,
   weekNumber = 1,
+  userName: propUserName,
+  fitzpatrick,
 }: ShareableResultCardProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const shotRef = useRef<any>(null);
+
+  const firebaseUser = useAuthStore((state) => state.user);
+  const userName = propUserName || firebaseUser?.displayName || 'SANO User';
 
   const handleShare = useCallback(async () => {
     try {
@@ -117,8 +124,10 @@ export function ShareableResultCard({
               </View>
               <View style={styles.glowRight}>
                 <Text style={styles.glowTrend}>↑ +6 this week</Text>
-                <Text style={styles.glowName}>{MOCK_USER.name}</Text>
-                <Text style={styles.glowFitz}>Fitzpatrick Type {MOCK_USER.fitzpatrick}</Text>
+                <Text style={styles.glowName}>{userName}</Text>
+                {fitzpatrick && (
+                  <Text style={styles.glowFitz}>Fitzpatrick Type {fitzpatrick}</Text>
+                )}
               </View>
             </View>
           </View>

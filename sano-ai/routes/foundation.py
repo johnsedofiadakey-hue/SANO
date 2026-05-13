@@ -73,22 +73,8 @@ async def match_foundation(
     image: Optional[UploadFile] = File(default=None),
     image_base64: Optional[str] = Form(default=None),
 ) -> FoundationResponse:
-    start = time.time()
-    time.sleep(random.uniform(0.5, 1.5))
-
-    tone = fitzpatrick if fitzpatrick and 1 <= fitzpatrick <= 6 else random.choice([4, 5, 5, 6])
-    undertone = random.choice(UNDERTONES[:3])
-    matches = SHADE_DATABASE.get(tone, SHADE_DATABASE[5])
-
-    processing_ms = int((time.time() - start) * 1000)
-
-    return FoundationResponse(
-        fitzpatrick_detected=tone,
-        undertone=undertone,
-        matches=matches,
-        model_version="v0.1-mock",
-        processing_time_ms=processing_ms,
-    )
+    from fastapi import HTTPException
+    raise HTTPException(status_code=503, detail="Foundation match model not yet loaded.")
 
 
 # Legacy alias
