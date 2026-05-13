@@ -29,8 +29,10 @@ import { GradientButton } from '../../src/components/ui/GradientButton';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius, shadows } from '../../src/theme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useHeartRate } from '../../src/hooks/useHeartRate';
-import { MOCK_VITALS } from '../../src/data/mockData';
 import { useRef } from 'react';
+import { FIREBASE_READY, auth } from '../../src/config/firebase';
+import { firestoreService } from '../../src/services/firestore';
+import { healthConnectService } from '../../src/services/healthConnect';
 
 const { width } = Dimensions.get('window');
 
@@ -190,12 +192,27 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
 export default function HealthScreen() {
   const [bpmModalOpen, setBpmModalOpen] = useState(false);
   const [measurementResult, setMeasurementResult] = useState<{ bpm: number; spo2: number } | null>(null);
+  
+  const [sleepModalOpen, setSleepModalOpen] = useState(false);
+  const [stressModalOpen, setStressModalOpen] = useState(false);
+  const [loggedSleep, setLoggedSleep] = useState<string | null>(null);
+  const [loggedStress, setLoggedStress] = useState<string | null>(null);
+
+  const handleSync = async () => {
+    const permission = await healthConnectService.requestPermissions();
+    if (permission) {
+      const data = await healthConnectService.syncData();
+      if (data.sleepHrs) {
+        setLoggedSleep(String(data.sleepHrs));
+      }
+    }
+  };
 
   const VITALS = [
-    { label: 'Heart Rate', value: measurementResult ? String(measurementResult.bpm) : String(MOCK_VITALS.heartRate), unit: 'bpm', emoji: '❤️', status: 'good' as const, tint: '#FFF1F2', icon_tint: '#FCA5A5' },
-    { label: 'SpO₂',       value: measurementResult ? String(measurementResult.spo2) : String(MOCK_VITALS.spo2),      unit: '%',   emoji: '💨', status: 'good' as const, tint: '#EFF6FF', icon_tint: '#93C5FD' },
-    { label: 'Sleep',      value: MOCK_VITALS.sleep,             unit: '',    emoji: '🌙', status: 'good' as const, tint: '#F5F3FF', icon_tint: '#C4B5FD' },
-    { label: 'Stress',     value: MOCK_VITALS.stress,            unit: '',    emoji: '🧘', status: 'good' as const, tint: '#F0FDF4', icon_tint: '#86EFAC' },
+    { label: 'Heart Rate', value: measurementResult ? String(measurementResult.bpm) : '--', unit: 'bpm', emoji: '❤️', status: 'good' as const, tint: '#FFF1F2', icon_tint: '#FCA5A5', action: 'bpm' },
+    { label: 'SpO₂',       value: measurementResult ? String(measurementResult.spo2) : '--',      unit: '%',   emoji: '💨', status: 'good' as const, tint: '#EFF6FF', icon_tint: '#93C5FD', action: 'spo2' },
+    { label: 'Sleep',      value: loggedSleep || '--',             unit: 'hrs',    emoji: '🌙', status: 'good' as const, tint: '#F5F3FF', icon_tint: '#C4B5FD', action: 'sleep' },
+    { label: 'Stress',     value: loggedStress || '--',            unit: '',    emoji: '🧘', status: 'good' as const, tint: '#F0FDF4', icon_tint: '#86EFAC', action: 'stress' },
   ];
 
   return (
@@ -203,25 +220,39 @@ export default function HealthScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* ── Header ── */}
-        <Animated.View entering={FadeInDown.delay(40).springify().damping(20)}>
-          <Text style={styles.pageTitle}>Health Hub</Text>
-          <Text style={styles.pageSub}>Vitals, diagnostics, and wellness</Text>
+        <Animated.View entering={FadeInDown.delay(40).springify().damping(20)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={styles.pageTitle}>Health Hub</Text>
+            <Text style={styles.pageSub}>Vitals, diagnostics, and wellness</Text>
+          </View>
+          <TouchableOpacity onPress={handleSync} style={{ padding: spacing.sm }}>
+            <Text style={{ color: colors.pur, fontFamily: 'Inter_600SemiBold' }}>🔄 Sync</Text>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* ── Vitals 2×2 grid ── */}
         <Animated.View entering={FadeInDown.delay(100).springify().damping(20)} style={styles.vitalsGrid}>
           {VITALS.map(v => (
-            <View key={v.label} style={[styles.vitalCard, { backgroundColor: v.tint }]}>
+            <TouchableOpacity 
+              key={v.label} 
+              style={[styles.vitalCard, { backgroundColor: v.tint }]}
+              onPress={() => {
+                if (v.action === 'sleep') setSleepModalOpen(true);
+                if (v.action === 'stress') setStressModalOpen(true);
+                if (v.action === 'bpm' || v.action === 'spo2') setBpmModalOpen(true);
+              }}
+              activeOpacity={0.8}
+            >
               <View style={[styles.vitalIconWrap, { backgroundColor: v.icon_tint }]}>
                 <Text style={styles.vitalEmoji}>{v.emoji}</Text>
               </View>
               <Text style={styles.vitalValue}>
                 {v.value}
-                {v.unit ? <Text style={styles.vitalUnit}> {v.unit}</Text> : null}
+                {v.unit && v.value !== '--' ? <Text style={styles.vitalUnit}> {v.unit}</Text> : null}
               </Text>
               <Text style={styles.vitalLabel}>{v.label}</Text>
               <View style={[styles.vitalStatus, { backgroundColor: STATUS_COLOR[v.status] }]} />
-            </View>
+            </TouchableOpacity>
           ))}
         </Animated.View>
 
@@ -280,6 +311,89 @@ export default function HealthScreen() {
       </ScrollView>
 
       <HeartRateModal visible={bpmModalOpen} onClose={() => setBpmModalOpen(false)} onResult={setMeasurementResult} />
+      
+      {/* Sleep Modal */}
+      <Modal visible={sleepModalOpen} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={modal.safe}>
+          <View style={modal.header}>
+            <Text style={modal.title}>Log Sleep</Text>
+            <TouchableOpacity onPress={() => setSleepModalOpen(false)}>
+              <Text style={modal.close}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={modal.scroll}>
+            <Card variant="white" style={{ gap: spacing.md }}>
+              <Label color={colors.t3}>How many hours did you sleep?</Label>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {['4', '5', '6', '7', '8', '9', '10'].map(hrs => (
+                  <TouchableOpacity 
+                    key={hrs} 
+                    style={[styles.testIconWrap, { backgroundColor: colors.bg2, width: 60, height: 40 }]}
+                    onPress={async () => {
+                      setLoggedSleep(hrs);
+                      setSleepModalOpen(false);
+                      if (FIREBASE_READY && auth?.currentUser?.uid) {
+                        await firestoreService.saveHealthEvent(auth.currentUser.uid, {
+                          type: 'sleep',
+                          value: { hours: parseInt(hrs, 10) },
+                        });
+                      }
+                    }}
+                  >
+                    <Text style={{ fontFamily: 'Inter_700Bold', color: colors.t1 }}>{hrs} hrs</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Card>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Stress Modal */}
+      <Modal visible={stressModalOpen} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={modal.safe}>
+          <View style={modal.header}>
+            <Text style={modal.title}>Log Stress</Text>
+            <TouchableOpacity onPress={() => setStressModalOpen(false)}>
+              <Text style={modal.close}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={modal.scroll}>
+            <Card variant="white" style={{ gap: spacing.md }}>
+              <Label color={colors.t3}>How do you feel today?</Label>
+              <View style={{ gap: spacing.sm }}>
+                {[
+                  { level: '1', label: 'Calm', emoji: '🧘' },
+                  { level: '2', label: 'Moderate', emoji: '😐' },
+                  { level: '3', label: 'Stressed', emoji: '😰' },
+                  { level: '4', label: 'Overwhelmed', emoji: '🤯' },
+                ].map(item => (
+                  <TouchableOpacity 
+                    key={item.level} 
+                    style={[styles.testRow, { backgroundColor: colors.bg2, borderRadius: radius.md, padding: spacing.md }]}
+                    onPress={async () => {
+                      setLoggedStress(item.label);
+                      setStressModalOpen(false);
+                      if (FIREBASE_READY && auth?.currentUser?.uid) {
+                        await firestoreService.saveHealthEvent(auth.currentUser.uid, {
+                          type: 'stress',
+                          value: { level: parseInt(item.level, 10), label: item.label },
+                        });
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 24, marginRight: spacing.md }}>{item.emoji}</Text>
+                    <View>
+                      <Text style={{ fontFamily: 'Inter_700Bold', color: colors.t1 }}>{item.label}</Text>
+                      <Text style={{ fontSize: fontSize.xs, color: colors.t3 }}>Level {item.level}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Card>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }

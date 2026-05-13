@@ -16,7 +16,6 @@ import { Label } from '../../src/components/ui/Label';
 import { GradientButton } from '../../src/components/ui/GradientButton';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useScanStore } from '../../src/store/scanStore';
-import { MOCK_SCAN_GROUPS } from '../../src/data/mockData';
 
 type Filter = 'All' | 'Face' | 'Neck' | 'Body';
 
@@ -40,9 +39,38 @@ export default function DashboardScreen() {
   const [filter, setFilter] = useState<Filter>('All');
   const { scans } = useScanStore();
 
-  const filteredGroups = MOCK_SCAN_GROUPS.filter(g => {
+  // Group real scans by body area
+  const groups = scans.reduce((acc: any[], scan) => {
+    const area = scan.body_area || 'Unknown';
+    const existing = acc.find(g => g.name.toLowerCase() === area.toLowerCase());
+    
+    if (existing) {
+      existing.scanCount += 1;
+      const scanDate = new Date(scan.created_at);
+      const existingDate = new Date(existing.lastScanDate);
+      if (scanDate > existingDate) {
+        existing.lastScanDate = scan.created_at;
+        existing.lastScan = new Date(scan.created_at).toLocaleDateString();
+      }
+    } else {
+      acc.push({
+        id: `group_${area}`,
+        name: area.charAt(0).toUpperCase() + area.slice(1),
+        scanCount: 1,
+        status: 'stable',
+        lastScan: new Date(scan.created_at).toLocaleDateString(),
+        lastScanDate: scan.created_at,
+        color: colors.pur,
+        improvement: 0,
+      });
+    }
+    return acc;
+  }, []);
+
+  const filteredGroups = groups.filter(g => {
     const matchesSearch = g.name.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
+    const matchesFilter = filter === 'All' || g.name.toLowerCase() === filter.toLowerCase();
+    return matchesSearch && matchesFilter;
   });
 
   return (

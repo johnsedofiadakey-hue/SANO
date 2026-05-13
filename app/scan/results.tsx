@@ -19,8 +19,8 @@ import { SeverityBar } from '../../src/components/ui/SeverityBar';
 import { Label } from '../../src/components/ui/Label';
 import { Chip } from '../../src/components/ui/Chip';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
-import { MOCK_USER } from '../../src/data/mockData';
 import { useScanStore } from '../../src/store/scanStore';
+import { useProfileStore } from '../../src/store/profileStore';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
 import { BODY_ZONES } from '../../src/components/ui/BodyMannequin';
 import type { BodyZone } from '../../src/components/ui/BodyMannequin';
@@ -60,6 +60,7 @@ export default function ResultsScreen() {
   const area = (params.area ?? 'face') as BodyZone;
 
   const { currentResult, isProcessing } = useScanStore();
+  const { glowScore } = useProfileStore();
   const { logEvent } = useDataCollection();
 
   React.useEffect(() => {
@@ -225,7 +226,7 @@ export default function ResultsScreen() {
             severity={topCondition.severity * 10}
             confidence={topCondition.confidence * 100}
             bodyArea={areaLabel}
-            glowScore={MOCK_USER.glowScore}
+            glowScore={glowScore}
             improving
             weekNumber={3}
           />

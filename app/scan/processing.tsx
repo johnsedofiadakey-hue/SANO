@@ -15,10 +15,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useScanStore } from '../../src/store/scanStore';
-import { DEMO_MODE, demoUploadScan } from '../../src/services/demoMode';
 import { uploadScan } from '../../src/services/scan';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
-import { MOCK_SCAN_RESULT } from '../../src/data/mockData';
 
 const { width, height } = Dimensions.get('window');
 
@@ -164,9 +162,7 @@ export default function ProcessingScreen() {
     // Run actual upload in parallel
     const doUpload = async () => {
       try {
-        const result = DEMO_MODE
-          ? await demoUploadScan(imageUri, area)
-          : await uploadScan(imageUri, area);
+        const result = await uploadScan(imageUri, area);
 
         if (mounted.current) setCurrentResult(result);
 

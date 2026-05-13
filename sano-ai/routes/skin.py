@@ -21,19 +21,43 @@ router = APIRouter()
 
 # ── Model state (loaded once at startup) ─────────────────────────────────────
 MODEL = None
+IS_TFLITE = False
 MODEL_INPUT_SIZE = (224, 224)
 CONDITION_LABELS: list[str] = []
 
 
 def load_model() -> None:
-    global MODEL, MODEL_INPUT_SIZE, CONDITION_LABELS
+    global MODEL, MODEL_INPUT_SIZE, CONDITION_LABELS, IS_TFLITE
 
+    tflite_path = Path("models/DermaAI.tflite")
     model_path = Path("models/DermaAI.keras")
+
+    if tflite_path.exists():
+        try:
+            print("Loading DermaAI.tflite …")
+            MODEL = tf.lite.Interpreter(model_path=str(tflite_path))
+            MODEL.allocate_tensors()
+            IS_TFLITE = True
+            
+            input_details = MODEL.get_input_details()
+            output_details = MODEL.get_output_details()
+            
+            shape = input_details[0]['shape']
+            MODEL_INPUT_SIZE = (int(shape[1]), int(shape[2]))
+            
+            num_classes = int(output_details[0]['shape'][-1])
+            CONDITION_LABELS = get_condition_labels(num_classes)
+            
+            print(f"✓ DermaAI TFLite loaded — input {MODEL_INPUT_SIZE}, {num_classes} classes: {CONDITION_LABELS}")
+            return
+        except Exception as exc:
+            print(f"✗ TFLite load failed: {exc}. Trying Keras model...")
+
     if not model_path.exists():
-        print("⚠  DermaAI.keras not found")
+        print("⚠  No model file found")
         import os
         if os.environ.get("ENV") == "production" or os.environ.get("NODE_ENV") == "production":
-            raise RuntimeError("DermaAI.keras not found in production!")
+            raise RuntimeError("Model file not found in production!")
         print("Running in mock mode")
         return
 
@@ -145,7 +169,16 @@ async def analyze_skin(request: ScanRequest):
 
     try:
         img = preprocess_image(request.image_base64, MODEL_INPUT_SIZE)
-        raw = MODEL.predict(img, verbose=0)
+        
+        if IS_TFLITE:
+            input_details = MODEL.get_input_details()
+            output_details = MODEL.get_output_details()
+            MODEL.set_tensor(input_details[0]['index'], img)
+            MODEL.invoke()
+            raw = MODEL.get_tensor(output_details[0]['index'])
+        else:
+            raw = MODEL.predict(img, verbose=0)
+            
         preds = apply_dark_skin_correction(raw, request.skin_tone or 5)
         flat = preds[0]
 
@@ -209,7 +242,7 @@ async def analyze_skin(request: ScanRequest):
 
 # ── Legacy alias ─────────────────────────────────────────────────────────────
 
-@router.post("/analyze/skin", response_model=ScanResult)
+@router.post("/analyze/skin")
 async def analyze_skin_legacy(
     request: ScanRequest,
 ):

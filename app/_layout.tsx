@@ -5,6 +5,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { PaystackProvider } from 'react-native-paystack-webview';
+import { AppState, AppStateStatus } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import {
   useFonts,
   Inter_400Regular,
@@ -71,7 +73,51 @@ export default function RootLayout() {
     // Schedule local notifications
     scheduleDefaultNotifications({ streakDays: MOCK_USER.streakDays }).catch(() => {});
 
-    return unsubscribe;
+    // Smart Sleep Detection
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background') {
+        const now = new Date();
+        const hours = now.getHours();
+        // If it's late (after 9 PM or before 4 AM), record as potential sleep start
+        if (hours >= 21 || hours < 4) {
+          await SecureStore.setItemAsync('last_active_night', now.toISOString());
+        }
+      } else if (nextAppState === 'active') {
+        const lastNight = await SecureStore.getItemAsync('last_active_night');
+        if (lastNight) {
+          const lastDate = new Date(lastNight);
+          const now = new Date();
+          const hours = now.getHours();
+          // If it's morning (after 5 AM), calculate sleep
+          if (hours >= 5 && hours < 12) {
+            const diffMs = now.getTime() - lastDate.getTime();
+            const diffHrs = diffMs / (1000 * 60 * 60);
+            
+            // If the difference is reasonable (4 to 12 hours), save it!
+            if (diffHrs >= 4 && diffHrs <= 12) {
+              await SecureStore.setItemAsync('smart_sleep_hours', diffHrs.toFixed(1));
+              const { auth, FIREBASE_READY } = await import('../src/config/firebase');
+              const { firestoreService } = await import('../src/services/firestore');
+              if (FIREBASE_READY && auth?.currentUser?.uid) {
+                await firestoreService.saveHealthEvent(auth.currentUser.uid, {
+                  type: 'sleep',
+                  value: { hours: parseFloat(diffHrs.toFixed(1)), method: 'smart_estimate' },
+                });
+              }
+            }
+            // Clear it so we don't calculate again today
+            await SecureStore.deleteItemAsync('last_active_night');
+          }
+        }
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      unsubscribe();
+      appStateSubscription.remove();
+    };
   }, [setUser, hydrateProfile, loadScans, hydrateCycle]);
 
   if (!fontsLoaded) return null;

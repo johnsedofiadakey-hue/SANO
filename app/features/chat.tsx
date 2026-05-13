@@ -26,7 +26,6 @@ import { useScanStore } from '../../src/store/scanStore';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useCycleStore } from '../../src/store/cycleStore';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
-import { DEMO_MODE, demoChatReply } from '../../src/services/demoMode';
 
 interface Message {
   id: string;
@@ -163,38 +162,34 @@ export default function ChatScreen() {
 
     try {
       let reply: string;
-
-      if (DEMO_MODE) {
-        reply = await demoChatReply(text.trim());
-      } else {
-        // Try real API; fall back to local matcher if unavailable
-        try {
-          const { api } = await import('../../src/services/api');
-          const userContext = {
-            userName: userName || 'User',
-            fitzpatrick: fitzpatrick ?? null,
-            skinConcerns,
-            glowScore,
-            cycleDay: currentCycleDay,
-            cyclePhase: currentPhase,
-            latestScan: currentResult
-              ? {
-                  condition: currentResult.conditions[0]?.name ?? null,
-                  severity: currentResult.conditions[0]?.severity ?? 0,
-                  confidence: currentResult.conditions[0]?.confidence ?? 0,
-                }
-              : null,
-            scanCount: scans.length,
-          };
-          const { data } = await api.post<{ response: string }>('/ai/chat', {
-            message: text.trim(),
-            history: messages.map(msg => ({ me: msg.role === 'user', txt: msg.content })),
-            userContext,
-          });
-          reply = data.response;
-        } catch (e: any) {
-          reply = `Error: Failed to connect to AI service. (${e.message || 'Unknown error'})`;
-        }
+      
+      // Try real API
+      try {
+        const { api } = await import('../../src/services/api');
+        const userContext = {
+          userName: userName || 'User',
+          fitzpatrick: fitzpatrick ?? null,
+          skinConcerns,
+          glowScore,
+          cycleDay: currentCycleDay,
+          cyclePhase: currentPhase,
+          latestScan: currentResult
+            ? {
+                condition: currentResult.conditions[0]?.name ?? null,
+                severity: currentResult.conditions[0]?.severity ?? 0,
+                confidence: currentResult.conditions[0]?.confidence ?? 0,
+              }
+            : null,
+          scanCount: scans.length,
+        };
+        const { data } = await api.post<{ response: string }>('/ai/chat', {
+          message: text.trim(),
+          history: messages.map(msg => ({ me: msg.role === 'user', txt: msg.content })),
+          userContext,
+        });
+        reply = data.response;
+      } catch (e: any) {
+        reply = `Error: Failed to connect to AI service. (${e.message || 'Unknown error'})`;
       }
 
       const aiMsg: Message = {
