@@ -9,8 +9,7 @@ import {
   MOCK_CYCLE,
   MOCK_CHAT_RESPONSES,
 } from '../data/mockData';
-
-export const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
+export { DEMO_MODE } from '../config/firebase';
 
 function simulateDelay<T>(value: T, minMs = 600, maxMs = 1200): Promise<T> {
   const delay = Math.random() * (maxMs - minMs) + minMs;

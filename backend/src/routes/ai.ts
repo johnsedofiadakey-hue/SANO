@@ -26,7 +26,7 @@ router.post('/chat', async (req, res) => {
 
   if (!ANTHROPIC_READY || !anthropic) {
     return res.json({
-      reply: 'AI chat not yet configured. Add ANTHROPIC_API_KEY to activate Claude.',
+      response: 'AI chat not yet configured. Add ANTHROPIC_API_KEY to activate Claude.',
       demo: true,
     });
   }
@@ -46,14 +46,14 @@ router.post('/chat', async (req, res) => {
 
     const block = result.content[0];
     if (block.type === 'text') {
-      res.json({ reply: block.text });
+      res.json({ response: block.text });
     } else {
-      res.json({ reply: 'I received a non-text response from the AI.' });
+      res.json({ response: 'I received a non-text response from the AI.' });
     }
   } catch (err: any) {
     res.status(500).json({
       error: 'AI service error',
-      reply: 'I had trouble responding. Please try again.',
+      response: 'I had trouble responding. Please try again.',
     });
   }
 });

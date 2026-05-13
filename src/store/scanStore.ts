@@ -73,6 +73,24 @@ export const useScanStore = create<ScanState>((set, get) => ({
     } catch (e) {
       console.error('Failed to load scans securely:', e);
     }
+
+    // Sync from Firestore if Firebase is configured
+    if (FIREBASE_READY) {
+      try {
+        const { auth } = await import('../config/firebase');
+        const { firestoreService } = await import('../services/firestore');
+        const uid = auth?.currentUser?.uid;
+        if (uid) {
+          const firestoreScans = await firestoreService.getUserScans(uid);
+          if (firestoreScans && firestoreScans.length > 0) {
+            // Map firestore scans to Scan type if needed
+            set({ scans: firestoreScans as unknown as Scan[] });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load scans from Firestore:', e);
+      }
+    }
   },
 }));
 
