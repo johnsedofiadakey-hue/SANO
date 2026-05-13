@@ -37,73 +37,66 @@ async def measure_heart_rate(
     bpm = 0
     spo2 = 0.0
     confidence = 0.0
-        
-        temp_path = f"/tmp/vitals_{int(time.time())}.mp4"
-        
-        if video_file:
-            with open(temp_path, "wb") as f:
-                f.write(await video_file.read())
-        else:
-            import base64
-            with open(temp_path, "wb") as f:
-                f.write(base64.b64decode(video_base64))
-            
-        try:
-            # Process video
-            cap = cv2.VideoCapture(temp_path)
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            if fps == 0: fps = 30.0 # Fallback
-            
-            greens = []
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                # Calculate mean green channel intensity
-                # Frame is BGR in OpenCV
-                green_mean = np.mean(frame[:, :, 1])
-                greens.append(green_mean)
-            cap.release()
-            
-            if len(greens) > 100: # Need enough frames
-                # Apply bandpass filter
-                # Heart rate range: 0.5 Hz to 4.0 Hz (30 to 240 bpm)
-                nyq = 0.5 * fps
-                low = 0.5 / nyq
-                high = 4.0 / nyq
-                b, a = signal.butter(3, [low, high], btype='band')
-                filtered = signal.filtfilt(b, a, greens)
-                
-                # Find peaks
-                peaks, _ = signal.find_peaks(filtered, distance=fps*0.5)
-                
-                if len(peaks) > 1:
-                    # Calculate BPM
-                    intervals = np.diff(peaks) / fps
-                    avg_interval = np.mean(intervals)
-                    bpm = int(60 / avg_interval)
-                    confidence = 0.85
-                    note = "Successfully calculated heart rate from video."
-                    spo2 = 98.0 # Still fallback for SpO2 as we don't have a real SpO2 model yet
-                else:
-                    raise HTTPException(status_code=422, detail="Could not detect clear peaks in video.")
-            else:
-                raise HTTPException(status_code=422, detail="Video too short or unreadable.")
-                
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
-            
-        # Clean up
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
+    temp_path = f"/tmp/vitals_{int(time.time())}.mp4"
+    
+    if video_file:
+        with open(temp_path, "wb") as f:
+            f.write(await video_file.read())
     else:
-        # Realistic resting heart rate range: 60–100 bpm
-        bpm = random.randint(62, 88)
-        spo2 = round(random.uniform(95.5, 99.2), 1)
-        confidence = 0.5
+        import base64
+        with open(temp_path, "wb") as f:
+            f.write(base64.b64decode(video_base64))
+        
+    try:
+        # Process video
+        cap = cv2.VideoCapture(temp_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps == 0: fps = 30.0 # Fallback
+        
+        greens = []
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            # Calculate mean green channel intensity
+            # Frame is BGR in OpenCV
+            green_mean = np.mean(frame[:, :, 1])
+            greens.append(green_mean)
+        cap.release()
+        
+        if len(greens) > 100: # Need enough frames
+            # Apply bandpass filter
+            # Heart rate range: 0.5 Hz to 4.0 Hz (30 to 240 bpm)
+            nyq = 0.5 * fps
+            low = 0.5 / nyq
+            high = 4.0 / nyq
+            b, a = signal.butter(3, [low, high], btype='band')
+            filtered = signal.filtfilt(b, a, greens)
+            
+            # Find peaks
+            peaks, _ = signal.find_peaks(filtered, distance=fps*0.5)
+            
+            if len(peaks) > 1:
+                # Calculate BPM
+                intervals = np.diff(peaks) / fps
+                avg_interval = np.mean(intervals)
+                bpm = int(60 / avg_interval)
+                confidence = 0.85
+                note = "Successfully calculated heart rate from video."
+                spo2 = 98.0 # Still fallback for SpO2 as we don't have a real SpO2 model yet
+            else:
+                raise HTTPException(status_code=422, detail="Could not detect clear peaks in video.")
+        else:
+            raise HTTPException(status_code=422, detail="Video too short or unreadable.")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
+        
+    # Clean up
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
 
     processing_ms = int((time.time() - start) * 1000)
 
