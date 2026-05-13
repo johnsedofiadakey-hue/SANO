@@ -29,12 +29,13 @@ CONDITION_LABELS: list[str] = []
 def load_model() -> None:
     global MODEL, MODEL_INPUT_SIZE, CONDITION_LABELS, IS_TFLITE
 
-    tflite_path = Path("models/DermaAI.tflite")
-    model_path = Path("models/DermaAI.keras")
+    base_dir = Path(__file__).parent.parent
+    tflite_path = base_dir / "models" / "DermaAI.tflite"
+    model_path = base_dir / "models" / "DermaAI.keras"
 
     if tflite_path.exists():
         try:
-            print("Loading DermaAI.tflite …")
+            print(f"Loading {tflite_path} …")
             MODEL = tf.lite.Interpreter(model_path=str(tflite_path))
             MODEL.allocate_tensors()
             IS_TFLITE = True
@@ -54,15 +55,15 @@ def load_model() -> None:
             print(f"✗ TFLite load failed: {exc}. Trying Keras model...")
 
     if not model_path.exists():
-        print("⚠  No model file found")
+        print(f"⚠  No model file found. Checked: {tflite_path} and {model_path}")
         import os
         if os.environ.get("ENV") == "production" or os.environ.get("NODE_ENV") == "production":
-            raise RuntimeError("Model file not found in production!")
+            raise RuntimeError(f"Model file not found in production! Checked: {tflite_path} and {model_path}")
         print("Running in mock mode")
         return
 
     try:
-        print("Loading DermaAI.keras …")
+        print(f"Loading {model_path} …")
         MODEL = tf.keras.models.load_model(str(model_path))
 
         input_shape = MODEL.input_shape          # (None, H, W, C)
