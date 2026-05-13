@@ -30,7 +30,11 @@ def load_model() -> None:
 
     model_path = Path("models/DermaAI.keras")
     if not model_path.exists():
-        print("⚠  DermaAI.keras not found — running in mock mode")
+        print("⚠  DermaAI.keras not found")
+        import os
+        if os.environ.get("ENV") == "production" or os.environ.get("NODE_ENV") == "production":
+            raise RuntimeError("DermaAI.keras not found in production!")
+        print("Running in mock mode")
         return
 
     try:
@@ -116,6 +120,7 @@ def get_mock_result(area: str) -> dict:
                 "doctor_confirmed": False,
             }
         ],
+        "skin_tone": 5,
         "skin_tone_detected": 5,
         "model_version": "v0.1-mock",
         "mock": True,

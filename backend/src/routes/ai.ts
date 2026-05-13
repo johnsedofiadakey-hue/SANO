@@ -21,11 +21,12 @@ Rules:
 `.trim();
 
 router.post('/chat', async (req, res) => {
-  const { message, history = [], userContext = {} } = req.body;
+  const { message, history = [], userContext = {}, context = {} } = req.body;
+  const finalContext = { ...userContext, ...context };
 
   if (!ANTHROPIC_READY || !anthropic) {
     return res.json({
-      response: 'AI chat not yet configured. Add ANTHROPIC_API_KEY to activate Claude.',
+      reply: 'AI chat not yet configured. Add ANTHROPIC_API_KEY to activate Claude.',
       demo: true,
     });
   }
@@ -39,20 +40,20 @@ router.post('/chat', async (req, res) => {
     const result = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
       max_tokens: 300,
-      system: buildSystemPrompt(userContext),
+      system: buildSystemPrompt(finalContext),
       messages,
     });
 
     const block = result.content[0];
     if (block.type === 'text') {
-      res.json({ response: block.text });
+      res.json({ reply: block.text });
     } else {
-      res.json({ response: 'I received a non-text response from the AI.' });
+      res.json({ reply: 'I received a non-text response from the AI.' });
     }
   } catch (err: any) {
     res.status(500).json({
       error: 'AI service error',
-      response: 'I had trouble responding. Please try again.',
+      reply: 'I had trouble responding. Please try again.',
     });
   }
 });
@@ -220,6 +221,82 @@ Return ONLY the JSON array. No markdown formatting, no explanation.
     }
   } catch (error: any) {
     console.error('Error in /ai/foundation:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+router.post('/product', async (req, res) => {
+  const { name } = req.body;
+
+  if (!ANTHROPIC_READY || !anthropic) {
+    return res.json({
+      product: {
+        name: name || 'The Ordinary Niacinamide 10% + Zinc 1%',
+        brand: 'The Ordinary',
+        barcode: '769915191076',
+        authentic: true,
+        compatibility: 82,
+        ingredients: [
+          { name: 'Niacinamide', purpose: 'Brightening, pore minimising', rating: 'safe', forDarkSkin: 'Excellent for hyperpigmentation on dark skin' },
+          { name: 'Zinc PCA', purpose: 'Oil control, anti-inflammatory', rating: 'safe' },
+          { name: 'Aqua (Water)', purpose: 'Solvent', rating: 'safe' },
+          { name: 'Phenoxyethanol', purpose: 'Preservative', rating: 'caution' },
+        ],
+      },
+      demo: true,
+    });
+  }
+
+  try {
+    const prompt = `
+Analyze the skincare product named "${name}".
+Provide:
+- name: Product name
+- brand: Brand name
+- barcode: A fake or real barcode if you know it
+- authentic: true
+- compatibility: Float between 50 and 100
+- ingredients: Array of objects with:
+  - name: Ingredient name
+  - purpose: Purpose
+  - rating: 'safe' | 'caution' | 'avoid'
+  - forDarkSkin: Custom note if good or bad for dark skin (optional)
+
+Return the response as a JSON object matching this interface:
+interface ProductAnalysis {
+  name: string;
+  brand: string;
+  barcode: string;
+  authentic: boolean;
+  compatibility: number;
+  ingredients: {
+    name: string;
+    purpose: string;
+    rating: 'safe' | 'caution' | 'avoid';
+    forDarkSkin?: string;
+  }[];
+}
+
+Return ONLY the JSON object. No markdown formatting, no explanation.
+`.trim();
+
+    const result = await anthropic.messages.create({
+      model: 'claude-3-sonnet-20240229',
+      max_tokens: 1000,
+      system: 'You are a cosmetic chemist. Return ONLY valid JSON object.',
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const content = result.content[0];
+    if (content.type === 'text') {
+      const jsonText = content.text.trim().replace(/```json\n?|```/g, '');
+      const product = JSON.parse(jsonText);
+      res.json({ product });
+    } else {
+      res.status(500).json({ error: 'AI returned non-text content' });
+    }
+  } catch (error: any) {
+    console.error('Error in /ai/product:', error);
     res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });

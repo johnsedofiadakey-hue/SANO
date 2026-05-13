@@ -15,6 +15,7 @@ import { Label } from '../../src/components/ui/Label';
 import { GradientButton } from '../../src/components/ui/GradientButton';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
+import { api } from '../../src/services/api';
 
 interface Ingredient {
   name: string;
@@ -46,11 +47,25 @@ export default function ProductScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [checked, setChecked] = useState(false);
+  const [product, setProduct] = useState<any>(MOCK_PRODUCT);
+  const [loading, setLoading] = useState(false);
   const { logEvent } = useDataCollection();
 
-  const handleCheck = () => {
-    setChecked(true);
-    logEvent('product_checked', { name: MOCK_PRODUCT.name });
+  const handleCheck = async () => {
+    if (!search.trim()) return;
+    setLoading(true);
+    try {
+      const response = await api.post('/ai/product', { name: search.trim() });
+      setProduct(response.data.product);
+      setChecked(true);
+      logEvent('product_checked', { name: response.data.product.name });
+    } catch (error) {
+      console.error('Failed to check product:', error);
+      setProduct(MOCK_PRODUCT);
+      setChecked(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -94,10 +109,10 @@ export default function ProductScreen() {
                   <Text style={styles.authEmoji}>✅</Text>
                   <Text style={styles.authText}>Authentic product</Text>
                 </View>
-                <Text style={styles.barcode}>#{MOCK_PRODUCT.barcode}</Text>
+                <Text style={styles.barcode}>#{product.barcode}</Text>
               </View>
-              <Text style={styles.productName}>{MOCK_PRODUCT.name}</Text>
-              <Text style={styles.brandName}>{MOCK_PRODUCT.brand}</Text>
+              <Text style={styles.productName}>{product.name}</Text>
+              <Text style={styles.brandName}>{product.brand}</Text>
             </Card>
 
             {/* Compatibility score */}
@@ -105,11 +120,11 @@ export default function ProductScreen() {
               <View style={styles.compatRow}>
                 <View>
                   <Label color={colors.pur}>Skin compatibility</Label>
-                  <Text style={styles.compatScore}>{MOCK_PRODUCT.compatibility}%</Text>
+                  <Text style={styles.compatScore}>{product.compatibility}%</Text>
                   <Text style={styles.compatSub}>for your skin profile</Text>
                 </View>
                 <View style={styles.compatRing}>
-                  <Text style={styles.compatRingNum}>{MOCK_PRODUCT.compatibility}</Text>
+                  <Text style={styles.compatRingNum}>{product.compatibility}</Text>
                   <Text style={styles.compatRingLabel}>%</Text>
                 </View>
               </View>
@@ -120,7 +135,7 @@ export default function ProductScreen() {
 
             {/* Ingredient analysis */}
             <Label color={colors.t3}>Ingredient analysis</Label>
-            {MOCK_PRODUCT.ingredients.map((ing, i) => (
+            {product.ingredients.map((ing: any, i: number) => (
               <Card key={i} variant="white" style={styles.ingCard}>
                 <View style={styles.ingRow}>
                   <View style={[styles.ingBadge, { backgroundColor: RATING_BG[ing.rating] }]}>

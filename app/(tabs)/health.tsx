@@ -40,13 +40,6 @@ const STATUS_COLOR = {
   alert: colors.red,
 } as const;
 
-const VITALS = [
-  { label: 'Heart Rate', value: String(MOCK_VITALS.heartRate), unit: 'bpm', emoji: '❤️', status: 'good' as const, tint: '#FFF1F2', icon_tint: '#FCA5A5' },
-  { label: 'SpO₂',       value: String(MOCK_VITALS.spo2),      unit: '%',   emoji: '💨', status: 'good' as const, tint: '#EFF6FF', icon_tint: '#93C5FD' },
-  { label: 'Sleep',      value: MOCK_VITALS.sleep,             unit: '',    emoji: '🌙', status: 'good' as const, tint: '#F5F3FF', icon_tint: '#C4B5FD' },
-  { label: 'Stress',     value: MOCK_VITALS.stress,            unit: '',    emoji: '🧘', status: 'good' as const, tint: '#F0FDF4', icon_tint: '#86EFAC' },
-];
-
 const TESTS = [
   { name: 'Malaria Detection',     emoji: '🦟', pro: true,  desc: 'Rapid symptom + eye scan analysis',         tint: '#FEF9C3' },
   { name: 'Blood Group Est.',      emoji: '🩸', pro: true,  desc: 'Estimate from vein pattern (experimental)',  tint: '#FEE2E2' },
@@ -73,12 +66,18 @@ function PulsingHeart({ active }: { active: boolean }) {
   return <Animated.Text style={[{ fontSize: 56 }, style]}>❤️</Animated.Text>;
 }
 
-function HeartRateModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onClose: () => void; onResult: (res: { bpm: number; spo2: number }) => void }) {
   const { bpm, spo2, isMeasuring, progress, result, startMeasurement, stop } = useHeartRate();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
   const handleClose = () => { stop(); onClose(); };
+
+  React.useEffect(() => {
+    if (result) {
+      onResult(result);
+    }
+  }, [result, onResult]);
 
   const handleStart = async () => {
     if (!permission?.granted) {
@@ -190,6 +189,14 @@ function HeartRateModal({ visible, onClose }: { visible: boolean; onClose: () =>
 
 export default function HealthScreen() {
   const [bpmModalOpen, setBpmModalOpen] = useState(false);
+  const [measurementResult, setMeasurementResult] = useState<{ bpm: number; spo2: number } | null>(null);
+
+  const VITALS = [
+    { label: 'Heart Rate', value: measurementResult ? String(measurementResult.bpm) : String(MOCK_VITALS.heartRate), unit: 'bpm', emoji: '❤️', status: 'good' as const, tint: '#FFF1F2', icon_tint: '#FCA5A5' },
+    { label: 'SpO₂',       value: measurementResult ? String(measurementResult.spo2) : String(MOCK_VITALS.spo2),      unit: '%',   emoji: '💨', status: 'good' as const, tint: '#EFF6FF', icon_tint: '#93C5FD' },
+    { label: 'Sleep',      value: MOCK_VITALS.sleep,             unit: '',    emoji: '🌙', status: 'good' as const, tint: '#F5F3FF', icon_tint: '#C4B5FD' },
+    { label: 'Stress',     value: MOCK_VITALS.stress,            unit: '',    emoji: '🧘', status: 'good' as const, tint: '#F0FDF4', icon_tint: '#86EFAC' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -272,7 +279,7 @@ export default function HealthScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      <HeartRateModal visible={bpmModalOpen} onClose={() => setBpmModalOpen(false)} />
+      <HeartRateModal visible={bpmModalOpen} onClose={() => setBpmModalOpen(false)} onResult={setMeasurementResult} />
     </SafeAreaView>
   );
 }
