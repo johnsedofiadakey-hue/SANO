@@ -8,7 +8,7 @@ from typing import Optional
 import cv2
 import numpy as np
 import tensorflow as tf
-from fastapi import APIRouter, File, UploadFile, Form
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from pydantic import BaseModel
 
 from class_labels import (
@@ -128,17 +128,20 @@ def get_mock_result(area: str) -> dict:
     }
 
 
+# ── Helper function ───────────────────────────────────────────────────────────
+
+def is_demo_mode() -> bool:
+    return os.getenv("SANO_DEMO_MODE") == "true" or os.getenv("ENVIRONMENT") != "production"
+
+
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
 @router.post("/skin")
 async def analyze_skin(request: ScanRequest):
     start = time.time()
 
-    if MODEL is None:
-        await asyncio.sleep(0.8)
-        result = get_mock_result(request.area or "face")
-        result["scan_id"] = str(uuid.uuid4())
-        return result
+    if MODEL is None and not is_demo_mode():
+        raise HTTPException(status_code=503, detail="AI model not loaded")
 
     try:
         img = preprocess_image(request.image_base64, MODEL_INPUT_SIZE)
@@ -196,8 +199,18 @@ async def analyze_skin(request: ScanRequest):
         }
 
     except Exception as exc:
-        print(f"Inference error: {exc}")
-        result = get_mock_result(request.area or "face")
-        result["scan_id"] = str(uuid.uuid4())
-        result["error"] = str(exc)
-        return result
+        if is_demo_mode():
+            result = get_mock_result(request.area or "face")
+            result["scan_id"] = str(uuid.uuid4())
+            return result
+        else:
+            raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Legacy alias ─────────────────────────────────────────────────────────────
+
+@router.post("/analyze/skin", response_model=ScanResult)
+async def analyze_skin_legacy(
+    request: ScanRequest,
+):
+    return await analyze_skin(request=request)
