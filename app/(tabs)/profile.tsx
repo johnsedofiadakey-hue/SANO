@@ -10,25 +10,34 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { GradientCard } from '../../src/components/ui/GradientCard';
 import { Card } from '../../src/components/ui/Card';
 import { Label } from '../../src/components/ui/Label';
 import { Avatar } from '../../src/components/ui/Avatar';
-import { Divider } from '../../src/components/ui/Divider';
-import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
+import { colors, GRADIENT, spacing, fontSize, fontWeight, radius, shadows } from '../../src/theme';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { useScanStore } from '../../src/store/scanStore';
 
 const SETTINGS_ROWS = [
-  { label: 'Notification preferences', emoji: '🔔' },
-  { label: 'Privacy & data',           emoji: '🔒' },
-  { label: 'Consent settings',         emoji: '✅' },
-  { label: 'Language',                 emoji: '🌍' },
-  { label: 'Connect a doctor',         emoji: '👨‍⚕️' },
-  { label: 'Export all my data',       emoji: '📥' },
-  { label: 'Help & support',           emoji: '💬' },
+  { label: 'Notification preferences', emoji: '🔔', tint: '#FFF7ED' },
+  { label: 'Privacy & data',           emoji: '🔒', tint: '#F0FDF4' },
+  { label: 'Consent settings',         emoji: '✅', tint: '#F0FDF4' },
+  { label: 'Language',                 emoji: '🌍', tint: '#EFF6FF' },
+  { label: 'Connect a doctor',         emoji: '👨‍⚕️', tint: '#FDF4FF' },
+  { label: 'Export all my data',       emoji: '📥', tint: colors.purLt },
+  { label: 'Help & support',           emoji: '💬', tint: colors.bg3 },
 ];
+
+function ChevronRight() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={colors.t4} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -55,111 +64,152 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Profile hero */}
-        <GradientCard style={styles.heroCard}>
-          <View style={styles.heroContent}>
-            <Avatar name={displayName} size={64} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroName}>{displayName}</Text>
-              <Text style={styles.heroSub}>Fitzpatrick Type {fitzpatrick ?? '—'}</Text>
-            </View>
-            <TouchableOpacity style={styles.editBtn}>
-              <Text style={styles.editBtnText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.heroStats}>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatVal}>{scans.length}</Text>
-              <Text style={styles.heroStatKey}>Scans</Text>
-            </View>
-            <View style={styles.heroStatDiv} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatVal}>{glowScore}</Text>
-              <Text style={styles.heroStatKey}>Glow score</Text>
-            </View>
-            <View style={styles.heroStatDiv} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatVal}>—</Text>
-              <Text style={styles.heroStatKey}>Blood group</Text>
-            </View>
-          </View>
-        </GradientCard>
-
-        {/* Subscription */}
-        <Card variant="tint" style={styles.subCard}>
-          <View style={styles.subRow}>
-            <View>
-              <Label color={colors.pur}>Current plan</Label>
-              <Text style={styles.subPlan}>Free</Text>
-            </View>
-            <TouchableOpacity activeOpacity={0.85}>
-              <LinearGradient colors={[...GRADIENT]} style={styles.upgradeBtn}>
-                <Text style={styles.upgradeBtnText}>Upgrade to Glow ✦</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.subFeatures}>
-            {['Unlimited scans', 'Foundation matcher', 'Cycle predictor', 'PDF reports'].map(f => (
-              <View key={f} style={styles.subFeature}>
-                <Text style={styles.subFeatureCheck}>✓</Text>
-                <Text style={styles.subFeatureText}>{f}</Text>
+        {/* ── Hero card ── */}
+        <Animated.View entering={FadeInDown.delay(60).springify().damping(20)}>
+          <GradientCard style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <Avatar name={displayName} size={60} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroName}>{displayName}</Text>
+                <View style={styles.fitzRow}>
+                  <View style={styles.fitzBadge}>
+                    <Text style={styles.fitzText}>Fitzpatrick {fitzpatrick ?? '—'}</Text>
+                  </View>
+                </View>
               </View>
-            ))}
-          </View>
-        </Card>
-
-        {/* Settings */}
-        <Label color={colors.t3}>Settings</Label>
-        <Card variant="white" noPadding>
-          {SETTINGS_ROWS.map((row, i) => (
-            <React.Fragment key={row.label}>
-              <TouchableOpacity style={styles.settingsRow} activeOpacity={0.7}>
-                <Text style={styles.settingsEmoji}>{row.emoji}</Text>
-                <Text style={styles.settingsLabel}>{row.label}</Text>
-                <Text style={styles.settingsArrow}>›</Text>
+              <TouchableOpacity style={styles.editBtn} activeOpacity={0.8}>
+                <Text style={styles.editBtnText}>Edit</Text>
               </TouchableOpacity>
-              {i < SETTINGS_ROWS.length - 1 && <Divider vertical={0} />}
-            </React.Fragment>
-          ))}
-        </Card>
-
-        {/* Research opt-in */}
-        <Card variant="tint" style={styles.researchCard}>
-          <Text style={styles.researchTitle}>🔬 Support African skin research</Text>
-          <Text style={styles.researchText}>
-            Your anonymised scan data helps train better AI for dark skin tones.
-            No PII ever leaves your device.
-          </Text>
-          <View style={styles.researchToggle}>
-            <Text style={styles.researchToggleLabel}>Opt in to research</Text>
-            <View style={styles.toggleOn}>
-              <Text style={styles.toggleOnText}>ON</Text>
             </View>
-          </View>
-        </Card>
 
-        {/* Log out */}
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>{scans.length}</Text>
+                <Text style={styles.heroStatKey}>Scans</Text>
+              </View>
+              <View style={styles.heroStatDiv} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>{glowScore ?? '—'}</Text>
+                <Text style={styles.heroStatKey}>Glow score</Text>
+              </View>
+              <View style={styles.heroStatDiv} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>Free</Text>
+                <Text style={styles.heroStatKey}>Plan</Text>
+              </View>
+            </View>
+          </GradientCard>
+        </Animated.View>
+
+        {/* ── Subscription upgrade ── */}
+        <Animated.View entering={FadeInDown.delay(120).springify().damping(20)}>
+          <Card variant="tint" style={styles.subCard}>
+            <View style={styles.subRow}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Label color={colors.pur}>Current plan</Label>
+                <Text style={styles.subPlan}>Free</Text>
+                <Text style={styles.subHint}>3 scans/month · Basic analysis</Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => router.push('/features/subscription' as any)}
+              >
+                <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.upgradeBtn}>
+                  <Text style={styles.upgradeBtnText}>Upgrade ✦</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.subFeatures}>
+              {['Unlimited scans', 'Foundation matcher', 'Cycle predictor', 'PDF reports'].map(f => (
+                <View key={f} style={styles.subFeature}>
+                  <Text style={styles.subFeatureCheck}>✓</Text>
+                  <Text style={styles.subFeatureText}>{f}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* ── Settings ── */}
+        <Animated.View entering={FadeInDown.delay(180).springify().damping(20)}>
+          <Label color={colors.t3} style={styles.sectionLabel}>Settings</Label>
+          <Card variant="white" noPadding elevated>
+            {SETTINGS_ROWS.map((row, i) => (
+              <React.Fragment key={row.label}>
+                <TouchableOpacity style={styles.settingsRow} activeOpacity={0.7}>
+                  <View style={[styles.settingsEmojiWrap, { backgroundColor: row.tint }]}>
+                    <Text style={styles.settingsEmoji}>{row.emoji}</Text>
+                  </View>
+                  <Text style={styles.settingsLabel}>{row.label}</Text>
+                  <ChevronRight />
+                </TouchableOpacity>
+                {i < SETTINGS_ROWS.length - 1 && <View style={styles.rowDivider} />}
+              </React.Fragment>
+            ))}
+          </Card>
+        </Animated.View>
+
+        {/* ── Research opt-in ── */}
+        <Animated.View entering={FadeInDown.delay(240).springify().damping(20)}>
+          <Card variant="tint" style={styles.researchCard}>
+            <View style={styles.researchHeader}>
+              <Text style={styles.researchIcon}>🔬</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.researchTitle}>Support African skin research</Text>
+                <Text style={styles.researchText}>
+                  Your anonymised scan data helps train better AI for dark skin tones. No PII leaves your device.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.researchToggle}>
+              <Text style={styles.researchToggleLabel}>Opt in to research</Text>
+              <View style={styles.toggleOn}>
+                <Text style={styles.toggleOnText}>ON</Text>
+              </View>
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* ── Log out ── */}
+        <Animated.View entering={FadeInDown.delay(300).springify().damping(20)}>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.8}>
+            <Text style={styles.logoutText}>Log out</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
         <Text style={styles.version}>SANO v1.0.0 · Built in Ghana 🇬🇭</Text>
 
-        <View style={{ height: spacing.xxxl }} />
+        {/* Tab bar padding */}
+        <View style={{ height: 120 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+  safe: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: spacing.lg, gap: spacing.lg },
+  sectionLabel: { marginBottom: -spacing.sm },
 
+  // Hero
   heroCard: { gap: spacing.lg },
-  heroContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  heroName: { fontSize: fontSize.xl2, fontWeight: fontWeight.extrabold, color: colors.white },
-  heroSub: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.7)' },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  heroName: {
+    fontSize: fontSize.xl2,
+    fontFamily: 'Inter_800ExtraBold',
+    color: colors.white,
+    marginBottom: 4,
+  },
+  fitzRow: { flexDirection: 'row' },
+  fitzBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  fitzText: { fontSize: fontSize.xs2, color: 'rgba(255,255,255,0.85)', fontFamily: 'Inter_500Medium' },
   editBtn: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -167,7 +217,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  editBtnText: { color: colors.white, fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  editBtnText: { color: colors.white, fontSize: fontSize.sm, fontFamily: 'Inter_600SemiBold' },
   heroStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -175,25 +225,28 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.15)',
   },
-  heroStat: { alignItems: 'center' },
-  heroStatVal: { fontSize: fontSize.xl2, fontWeight: fontWeight.extrabold, color: colors.white },
-  heroStatKey: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.6)' },
-  heroStatDiv: { width: 1, backgroundColor: 'rgba(255,255,255,0.15)' },
+  heroStat: { alignItems: 'center', gap: 2 },
+  heroStatVal: { fontSize: fontSize.xl2, fontFamily: 'Inter_800ExtraBold', color: colors.white },
+  heroStatKey: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.60)', fontFamily: 'Inter_400Regular' },
+  heroStatDiv: { width: 1, backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'stretch', marginVertical: 4 },
 
+  // Subscription card
   subCard: { gap: spacing.md },
-  subRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  subPlan: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.t1 },
+  subRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  subPlan: { fontSize: fontSize.xl, fontFamily: 'Inter_700Bold', color: colors.t1 },
+  subHint: { fontSize: fontSize.xs, color: colors.t3 },
   upgradeBtn: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
   },
-  upgradeBtnText: { color: colors.white, fontWeight: fontWeight.bold, fontSize: fontSize.sm },
-  subFeatures: { gap: spacing.xs },
-  subFeature: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  subFeatureCheck: { color: colors.pur, fontWeight: fontWeight.bold },
-  subFeatureText: { fontSize: fontSize.sm, color: colors.t2 },
+  upgradeBtnText: { color: colors.white, fontFamily: 'Inter_700Bold', fontSize: fontSize.sm },
+  subFeatures: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  subFeature: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  subFeatureCheck: { color: colors.pur, fontFamily: 'Inter_700Bold', fontSize: fontSize.xs },
+  subFeatureText: { fontSize: fontSize.xs, color: colors.t3 },
 
+  // Settings
   settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,32 +254,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  settingsEmoji: { fontSize: 18 },
-  settingsLabel: { flex: 1, fontSize: fontSize.md, color: colors.t1, fontWeight: fontWeight.medium },
-  settingsArrow: { fontSize: 20, color: colors.t4 },
+  settingsEmojiWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsEmoji: { fontSize: 17 },
+  settingsLabel: { flex: 1, fontSize: fontSize.md, color: colors.t1, fontFamily: 'Inter_500Medium' },
+  rowDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.bdr, marginLeft: 68 },
 
+  // Research
   researchCard: { gap: spacing.sm },
-  researchTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.t1 },
+  researchHeader: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  researchIcon: { fontSize: 22, marginTop: 2 },
+  researchTitle: { fontSize: fontSize.md, fontFamily: 'Inter_700Bold', color: colors.t1, marginBottom: 4 },
   researchText: { fontSize: fontSize.sm, color: colors.t3, lineHeight: 20 },
-  researchToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  researchToggleLabel: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.t2 },
+  researchToggle: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.bdr,
+  },
+  researchToggleLabel: { fontSize: fontSize.md, fontFamily: 'Inter_600SemiBold', color: colors.t2 },
   toggleOn: {
     backgroundColor: colors.pur,
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
     borderRadius: radius.full,
   },
-  toggleOnText: { color: colors.white, fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+  toggleOnText: { color: colors.white, fontSize: fontSize.xs, fontFamily: 'Inter_700Bold' },
 
+  // Logout
   logoutBtn: {
     alignItems: 'center',
     paddingVertical: spacing.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.redLt,
+    borderColor: `${colors.red}30`,
     backgroundColor: colors.redLt,
   },
-  logoutText: { color: colors.red, fontWeight: fontWeight.bold, fontSize: fontSize.md },
+  logoutText: { color: colors.red, fontFamily: 'Inter_700Bold', fontSize: fontSize.md },
 
   version: { textAlign: 'center', fontSize: fontSize.xs, color: colors.t4 },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,24 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  FadeInDown,
+  FadeInRight,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { GradientCard } from '../../src/components/ui/GradientCard';
 import { Card } from '../../src/components/ui/Card';
 import { GradientRing } from '../../src/components/ui/GradientRing';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Label } from '../../src/components/ui/Label';
-import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
+import { colors, GRADIENT, GRADIENT_SOFT, spacing, fontSize, fontWeight, radius, shadows } from '../../src/theme';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useScanStore } from '../../src/store/scanStore';
 import { useCycleStore } from '../../src/store/cycleStore';
@@ -23,37 +31,70 @@ import { useCycleStore } from '../../src/store/cycleStore';
 const { width } = Dimensions.get('window');
 
 const TIPS = [
-  'Drink 8 glasses of water daily — hydration shows on your face within 48 hours.',
-  'Apply SPF 30+ every morning, even on cloudy days. UV rays penetrate clouds.',
-  'Change your pillowcase every 3 days to reduce acne-causing bacteria.',
-  'Never pop a pimple — it causes hyperpigmentation, especially on dark skin.',
+  { text: 'Drink 8 glasses of water daily — hydration shows on your face within 48 hours.', icon: '💧' },
+  { text: 'Apply SPF 30+ every morning, even on cloudy days. UV rays penetrate clouds.', icon: '☀️' },
+  { text: 'Change your pillowcase every 3 days to reduce acne-causing bacteria.', icon: '🛌' },
+  { text: 'Never pop a pimple — it causes hyperpigmentation, especially on dark skin.', icon: '🚫' },
 ];
 
-function QuickAction({
-  emoji,
-  label,
-  sub,
-  bg,
-  onPress,
+function PressableCard({
+  onPress, children, style,
 }: {
-  emoji: string;
-  label: string;
-  sub: string;
-  bg: string;
   onPress: () => void;
+  children: React.ReactNode;
+  style?: any;
 }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.85}
-      style={[styles.quickAction, { backgroundColor: bg }]}
+      onPressIn={() => { scale.value = withSpring(0.96, { damping: 14, stiffness: 350 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 14, stiffness: 280 }); }}
+      activeOpacity={1}
     >
-      <Text style={styles.qaEmoji}>{emoji}</Text>
-      <Text style={styles.qaLabel}>{label}</Text>
-      <Text style={styles.qaSub}>{sub}</Text>
+      <Animated.View style={[animStyle, style]}>{children}</Animated.View>
     </TouchableOpacity>
   );
 }
+
+function QuickAction({
+  emoji, label, sub, gradient, onPress, delay,
+}: {
+  emoji: string; label: string; sub: string;
+  gradient: readonly [string, string];
+  onPress: () => void; delay: number;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View entering={FadeInDown.delay(delay).springify().damping(18)} style={styles.qaWrap}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(0.95, { damping: 12, stiffness: 400 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 14, stiffness: 280 }); }}
+        activeOpacity={1}
+      >
+        <Animated.View style={[styles.quickAction, animStyle]}>
+          <LinearGradient colors={[...gradient]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.qaIcon}>
+            <Text style={{ fontSize: 20 }}>{emoji}</Text>
+          </LinearGradient>
+          <Text style={styles.qaLabel}>{label}</Text>
+          <Text style={styles.qaSub}>{sub}</Text>
+        </Animated.View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+const PHASE_CONFIG: Record<string, { emoji: string; bg: string; text: string; border: string }> = {
+  follicular: { emoji: '🌱', bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0' },
+  ovulation:  { emoji: '🌸', bg: '#FEF0F7', text: '#831843', border: '#F9A8D4' },
+  luteal:     { emoji: '🌙', bg: '#F5F3FF', text: '#4C1D95', border: '#DDD6FE' },
+  period:     { emoji: '💜', bg: '#FFF1F2', text: '#9F1239', border: '#FCA5A5' },
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -61,266 +102,355 @@ export default function HomeScreen() {
   const { scans } = useScanStore();
   const { currentCycleDay, currentPhase } = useCycleStore();
 
-  const displayName = name || 'Beautiful';
+  const displayName = name?.split(' ')[0] || 'Beautiful';
   const tip = TIPS[new Date().getDay() % TIPS.length];
+  const phase = PHASE_CONFIG[currentPhase ?? 'follicular'] ?? PHASE_CONFIG.follicular;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <View style={styles.header}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        {/* ── Header ── */}
+        <Animated.View entering={FadeInDown.delay(0).springify().damping(20)} style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.name}>{displayName} ✨</Text>
+            <Text style={styles.greeting}>{greeting} 👋</Text>
+            <Text style={styles.name}>{displayName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <View style={styles.streakChip}>
-              <Text style={styles.streakEmoji}>🔥</Text>
-              <Text style={styles.streakText}>{streakDays} days</Text>
-            </View>
-            <Avatar name={displayName} size={42} />
+            {streakDays > 0 && (
+              <View style={styles.streakChip}>
+                <Text style={styles.streakEmoji}>🔥</Text>
+                <Text style={styles.streakText}>{streakDays}d</Text>
+              </View>
+            )}
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+              <Avatar name={displayName} size={44} />
+            </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Glow Score Hero */}
-        <GradientCard style={styles.glowCard}>
-          <View style={styles.glowRow}>
-            <View style={styles.glowInfo}>
-              <Label color="rgba(255,255,255,0.65)">Your Glow Score</Label>
-              <Text style={styles.glowScore}>{glowScore}</Text>
-              <Text style={styles.glowSub}>Looking radiant 💜</Text>
+        {/* ── Glow Score Hero ── */}
+        <Animated.View entering={FadeInDown.delay(60).springify().damping(20)}>
+          <GradientCard style={styles.glowCard}>
+            <View style={styles.glowRow}>
+              <View style={styles.glowInfo}>
+                <Text style={styles.glowLabel}>GLOW SCORE</Text>
+                <Text style={styles.glowScore}>{glowScore}</Text>
+                <Text style={styles.glowSub}>Looking radiant ✦</Text>
 
-              <View style={styles.statsRow}>
-                <View style={styles.stat}>
-                  <Text style={styles.statVal}>{scans.length}</Text>
-                  <Text style={styles.statKey}>Scans</Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.stat}>
+                    <Text style={styles.statVal}>{scans.length}</Text>
+                    <Text style={styles.statKey}>Scans</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.stat}>
+                    <Text style={styles.statVal}>{currentCycleDay ?? '—'}</Text>
+                    <Text style={styles.statKey}>Cycle</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.stat}>
+                    <Text style={styles.statVal}>{streakDays}</Text>
+                    <Text style={styles.statKey}>Streak</Text>
+                  </View>
                 </View>
-                <View style={styles.statDivider} />
-                <View style={styles.stat}>
-                  <Text style={styles.statVal}>{currentCycleDay ?? '—'}</Text>
-                  <Text style={styles.statKey}>Cycle day</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.stat}>
-                  <Text style={styles.statVal}>SPF</Text>
-                  <Text style={styles.statKey}>Next tip</Text>
+              </View>
+
+              <View style={styles.ringBox}>
+                <GradientRing
+                  progress={glowScore / 100}
+                  size={108}
+                  strokeWidth={9}
+                  gradientStart="rgba(255,255,255,0.95)"
+                  gradientEnd="rgba(255,255,255,0.35)"
+                  trackColor="rgba(255,255,255,0.15)"
+                />
+                <View style={styles.ringCenter}>
+                  <Text style={styles.ringNum}>{glowScore}</Text>
+                  <Text style={styles.ringLabel}>/ 100</Text>
                 </View>
               </View>
             </View>
+          </GradientCard>
+        </Animated.View>
 
-            <View style={styles.ringBox}>
-              <GradientRing
-                progress={glowScore / 100}
-                size={110}
-                strokeWidth={10}
-                gradientStart="#FFFFFF"
-                gradientEnd="rgba(255,255,255,0.35)"
-                trackColor="rgba(255,255,255,0.15)"
-              />
-              <View style={styles.ringCenter}>
-                <Text style={styles.ringNum}>{glowScore}</Text>
-              </View>
-            </View>
-          </View>
-        </GradientCard>
-
-        {/* Cycle alert */}
+        {/* ── Cycle insight ── */}
         {currentCycleDay && (
-          <Card variant="tint" style={styles.cycleAlert}>
-            <View style={styles.cycleRow}>
-              <Text style={styles.cycleEmoji}>🌙</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cycleTitle}>
-                  Cycle day {currentCycleDay} · {currentPhase}
-                </Text>
-                <Text style={styles.cycleSub}>
-                  {currentPhase === 'luteal'
-                    ? 'Breakout risk is elevated. Keep your routine consistent.'
-                    : 'Skin is in a stable phase. Great time to try new products.'}
-                </Text>
+          <Animated.View entering={FadeInDown.delay(120).springify().damping(20)}>
+            <TouchableOpacity
+              onPress={() => router.push('/features/cycle')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.cycleCard, { backgroundColor: phase.bg, borderColor: phase.border }]}>
+                <Text style={styles.cycleEmoji}>{phase.emoji}</Text>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.cycleTitle, { color: phase.text }]}>
+                    Day {currentCycleDay} · {(currentPhase ?? 'follicular').charAt(0).toUpperCase() + (currentPhase ?? 'follicular').slice(1)} phase
+                  </Text>
+                  <Text style={[styles.cycleSub, { color: phase.text, opacity: 0.75 }]}>
+                    {currentPhase === 'luteal'
+                      ? 'Breakout risk elevated — keep routine consistent.'
+                      : currentPhase === 'period'
+                      ? 'Focus on hydration and gentle products this week.'
+                      : 'Skin barrier is at its best — great time for actives.'}
+                  </Text>
+                </View>
+                <Text style={[styles.cycleChevron, { color: phase.text }]}>›</Text>
               </View>
-            </View>
-          </Card>
+            </TouchableOpacity>
+          </Animated.View>
         )}
 
-        {/* Quick actions */}
-        <Label style={styles.sectionLabel}>Quick actions</Label>
+        {/* ── Quick actions ── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick actions</Text>
+        </View>
+
         <View style={styles.quickGrid}>
           <QuickAction
-            emoji="🔬"
-            label="Scan skin"
-            sub="AI analysis"
-            bg={colors.purMid}
-            onPress={() => router.push('/scan/mannequin')}
+            emoji="🔬" label="Scan skin" sub="AI analysis"
+            gradient={['#6D28D9', '#8B5CF6']}
+            onPress={() => router.push('/scan/mannequin')} delay={100}
           />
           <QuickAction
-            emoji="📊"
-            label="My scans"
-            sub={`${scans.length} saved`}
-            bg={colors.bg3}
-            onPress={() => router.push('/features/dashboard')}
+            emoji="📊" label="My scans" sub={`${scans.length} saved`}
+            gradient={['#0EA5E9', '#38BDF8']}
+            onPress={() => router.push('/features/dashboard')} delay={140}
           />
           <QuickAction
-            emoji="💬"
-            label="AI Chat"
-            sub="Ask anything"
-            bg={colors.pinkMid}
-            onPress={() => router.push('/features/chat')}
+            emoji="💬" label="AI Chat" sub="Ask anything"
+            gradient={['#E8398A', '#F472B6']}
+            onPress={() => router.push('/features/chat')} delay={180}
           />
           <QuickAction
-            emoji="🧴"
-            label="Routine"
-            sub="Check conflicts"
-            bg={colors.bg2}
-            onPress={() => router.push('/features/routine')}
+            emoji="🧴" label="Routine" sub="Check conflicts"
+            gradient={['#059669', '#34D399']}
+            onPress={() => router.push('/features/routine')} delay={220}
           />
         </View>
 
-        {/* Recent scans */}
+        {/* ── Recent scans ── */}
         {scans.length > 0 && (
-          <>
-            <Label style={styles.sectionLabel}>Recent scans</Label>
+          <Animated.View entering={FadeInDown.delay(260).springify().damping(20)}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent scans</Text>
+              <TouchableOpacity onPress={() => router.push('/features/dashboard')} activeOpacity={0.7}>
+                <Text style={styles.seeAll}>See all</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.scansScroll}
             >
-              {scans.slice(0, 5).map(scan => (
-                <TouchableOpacity
+              {scans.slice(0, 5).map((scan, i) => (
+                <PressableCard
                   key={scan.scan_id}
-                  style={styles.scanCard}
                   onPress={() => router.push('/features/dashboard')}
-                  activeOpacity={0.85}
+                  style={styles.scanCard}
                 >
-                  <LinearGradient
-                    colors={[...GRADIENT]}
-                    style={styles.scanIcon}
-                  >
-                    <Text style={{ fontSize: 18 }}>🔬</Text>
+                  <LinearGradient colors={[...GRADIENT]} style={styles.scanIcon} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                    <Text style={{ fontSize: 16 }}>🔬</Text>
                   </LinearGradient>
-                  <Text style={styles.scanArea}>{scan.body_area}</Text>
+                  <Text style={styles.scanArea} numberOfLines={1}>{scan.body_area}</Text>
                   <Text style={styles.scanDate}>
                     {new Date(scan.created_at).toLocaleDateString('en-GH', { month: 'short', day: 'numeric' })}
                   </Text>
-                  <View style={styles.scanStatus}>
+                  <View style={styles.scanStatusRow}>
                     <View style={[styles.dot, { backgroundColor: colors.grn }]} />
                     <Text style={styles.scanStatusText}>Improving</Text>
                   </View>
-                </TouchableOpacity>
+                </PressableCard>
               ))}
-
-              <TouchableOpacity
-                style={[styles.scanCard, styles.newScanCard]}
+              <PressableCard
                 onPress={() => router.push('/scan/mannequin')}
-                activeOpacity={0.85}
+                style={[styles.scanCard, styles.newScanCard]}
               >
                 <Text style={styles.newScanPlus}>＋</Text>
-                <Text style={styles.newScanText}>New scan</Text>
-              </TouchableOpacity>
+                <Text style={styles.newScanText}>New{'\n'}scan</Text>
+              </PressableCard>
             </ScrollView>
-          </>
+          </Animated.View>
         )}
 
-        {/* Daily tip */}
-        <Card variant="tint" style={styles.tipCard}>
-          <Label color={colors.pur}>Daily tip</Label>
-          <Text style={styles.tipText}>{tip}</Text>
-        </Card>
+        {/* ── Daily tip ── */}
+        <Animated.View entering={FadeInDown.delay(300).springify().damping(20)}>
+          <LinearGradient colors={[...GRADIENT_SOFT]} style={styles.tipCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <View style={styles.tipHeader}>
+              <Text style={styles.tipIcon}>{tip.icon}</Text>
+              <Text style={styles.tipLabel}>DAILY TIP</Text>
+            </View>
+            <Text style={styles.tipText}>{tip.text}</Text>
+          </LinearGradient>
+        </Animated.View>
 
-        <View style={{ height: spacing.xxl }} />
+        {/* ── Health features banner ── */}
+        <Animated.View entering={FadeInDown.delay(340).springify().damping(20)}>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/health')}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#0D0520', '#2E1065']}
+              style={styles.healthBanner}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.healthBannerOrb} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.healthBannerLabel}>HEALTH CENTER</Text>
+                <Text style={styles.healthBannerTitle}>Check your vitals →</Text>
+                <Text style={styles.healthBannerSub}>Heart rate, hydration, and more</Text>
+              </View>
+              <Text style={{ fontSize: 32 }}>💓</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <View style={{ height: 120 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
-  scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg },
+const QA_SIZE = (width - 48 - 12) / 2;
 
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerLeft: { gap: 2 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  greeting: { fontSize: fontSize.sm, color: colors.t3, fontWeight: fontWeight.medium },
-  name: { fontSize: fontSize.xl2, fontWeight: fontWeight.extrabold, color: colors.t1 },
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.bg },
+  scroll: { paddingHorizontal: 20, paddingTop: 8, gap: 16 },
+
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  headerLeft: { gap: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  greeting: { fontSize: fontSize.sm, color: colors.t3, fontWeight: fontWeight.medium, letterSpacing: 0.1 },
+  name: { fontSize: fontSize.xl3, fontWeight: fontWeight.extrabold, color: colors.t1, letterSpacing: -0.5 },
   streakChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.amberLt,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#FFFBEB', borderRadius: radius.full,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: '#FDE68A',
   },
   streakEmoji: { fontSize: 12 },
-  streakText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.amber },
+  streakText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.amber },
 
-  glowCard: { gap: spacing.md },
+  // Glow card
+  glowCard: { marginTop: 4 },
   glowRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  glowInfo: { flex: 1, gap: spacing.xs },
-  glowScore: { fontSize: fontSize.xl6, fontWeight: fontWeight.extrabold, color: colors.white, lineHeight: 52 },
-  glowSub: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.8)', fontWeight: fontWeight.medium },
-  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md },
-  stat: { alignItems: 'center' },
+  glowInfo: { flex: 1, gap: 4 },
+  glowLabel: {
+    fontSize: fontSize.xs, fontWeight: fontWeight.bold,
+    color: 'rgba(255,255,255,0.55)', letterSpacing: 1.5,
+  },
+  glowScore: {
+    fontSize: fontSize.xl6, fontWeight: fontWeight.extrabold,
+    color: colors.white, lineHeight: 52, letterSpacing: -2,
+  },
+  glowSub: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.75)', fontWeight: fontWeight.medium },
+  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 16 },
+  stat: { alignItems: 'center', gap: 2 },
   statVal: { fontSize: fontSize.lg, fontWeight: fontWeight.extrabold, color: colors.white },
-  statKey: { fontSize: fontSize.xs2, color: 'rgba(255,255,255,0.6)' },
-  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)' },
+  statKey: { fontSize: fontSize.xs2, color: 'rgba(255,255,255,0.55)', fontWeight: fontWeight.medium, letterSpacing: 0.3 },
+  statDivider: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.18)' },
   ringBox: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   ringCenter: { position: 'absolute', alignItems: 'center' },
-  ringNum: { fontSize: fontSize.xl4, fontWeight: fontWeight.extrabold, color: colors.white },
+  ringNum: { fontSize: fontSize.xl3, fontWeight: fontWeight.extrabold, color: colors.white, lineHeight: 28 },
+  ringLabel: { fontSize: fontSize.xs2, color: 'rgba(255,255,255,0.5)', fontWeight: fontWeight.medium },
 
-  cycleAlert: { gap: spacing.xs },
-  cycleRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
-  cycleEmoji: { fontSize: 20, marginTop: 2 },
-  cycleTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.t1, textTransform: 'capitalize' },
-  cycleSub: { fontSize: fontSize.sm, color: colors.t3, marginTop: 2 },
-
-  sectionLabel: { marginTop: spacing.sm, marginBottom: -spacing.sm },
-
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  quickAction: {
-    width: (width - spacing.lg * 2 - spacing.sm) / 2,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.bdr,
+  // Cycle
+  cycleCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: radius.xl, borderWidth: 1.5, padding: 14,
   },
-  qaEmoji: { fontSize: 24 },
-  qaLabel: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.t1 },
-  qaSub: { fontSize: fontSize.xs, color: colors.t3 },
+  cycleEmoji: { fontSize: 22 },
+  cycleTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  cycleSub: { fontSize: fontSize.xs, lineHeight: 16 },
+  cycleChevron: { fontSize: 22, fontWeight: fontWeight.bold, opacity: 0.6 },
 
-  scansScroll: { gap: spacing.sm, paddingBottom: spacing.xs },
+  // Section
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  sectionTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.t1, letterSpacing: -0.2 },
+  seeAll: { fontSize: fontSize.sm, color: colors.pur, fontWeight: fontWeight.semibold },
+
+  // Quick actions
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  qaWrap: { width: QA_SIZE },
+  quickAction: {
+    width: '100%', borderRadius: radius.xl,
+    padding: 18, gap: 8,
+    backgroundColor: colors.white,
+    borderWidth: 1, borderColor: colors.bdr,
+    ...shadows.sm,
+  },
+  qaIcon: {
+    width: 44, height: 44, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  qaLabel: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.t1 },
+  qaSub: { fontSize: fontSize.xs, color: colors.t3, fontWeight: fontWeight.medium },
+
+  // Scans
+  scansScroll: { gap: 10, paddingBottom: 4 },
   scanCard: {
-    width: 110,
-    backgroundColor: colors.bg2,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.bdr,
+    width: 108, backgroundColor: colors.white,
+    borderRadius: radius.xl, padding: 14, gap: 6,
+    borderWidth: 1, borderColor: colors.bdr,
+    ...shadows.xs,
   },
   scanIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
   },
   scanArea: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.t1, textTransform: 'capitalize' },
   scanDate: { fontSize: fontSize.xs2, color: colors.t4 },
-  scanStatus: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  scanStatusText: { fontSize: fontSize.xs2, color: colors.t3 },
+  scanStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 5, height: 5, borderRadius: 3 },
+  scanStatusText: { fontSize: fontSize.xs2, color: colors.t3, fontWeight: fontWeight.medium },
   newScanCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.purLt,
-    borderColor: colors.purMid,
-    borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.purLt, borderColor: colors.purMid, borderStyle: 'dashed',
   },
-  newScanPlus: { fontSize: 28, color: colors.pur, fontWeight: fontWeight.bold },
-  newScanText: { fontSize: fontSize.xs, color: colors.pur, fontWeight: fontWeight.medium },
+  newScanPlus: { fontSize: 26, color: colors.pur, fontWeight: fontWeight.bold },
+  newScanText: { fontSize: fontSize.xs, color: colors.pur, fontWeight: fontWeight.semibold, textAlign: 'center' },
 
-  tipCard: { gap: spacing.sm },
-  tipText: { fontSize: fontSize.md, color: colors.t2, lineHeight: 22 },
+  // Tip
+  tipCard: {
+    borderRadius: radius.xl, padding: 18, gap: 10,
+    borderWidth: 1, borderColor: colors.bdrHi,
+  },
+  tipHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tipIcon: { fontSize: 18 },
+  tipLabel: {
+    fontSize: fontSize.xs, fontWeight: fontWeight.bold,
+    color: colors.pur, letterSpacing: 1.2,
+  },
+  tipText: { fontSize: fontSize.md, color: colors.t2, lineHeight: 23, fontWeight: fontWeight.medium },
+
+  // Health banner
+  healthBanner: {
+    borderRadius: radius.xl, padding: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    overflow: 'hidden', position: 'relative',
+  },
+  healthBannerOrb: {
+    position: 'absolute', width: 160, height: 160,
+    borderRadius: 80, backgroundColor: 'rgba(124,58,237,0.2)',
+    top: -40, right: -20,
+  },
+  healthBannerLabel: {
+    fontSize: fontSize.xs2, fontWeight: fontWeight.bold,
+    color: 'rgba(255,255,255,0.45)', letterSpacing: 1.4, marginBottom: 2,
+  },
+  healthBannerTitle: {
+    fontSize: fontSize.xl, fontWeight: fontWeight.extrabold,
+    color: colors.white, letterSpacing: -0.3,
+  },
+  healthBannerSub: {
+    fontSize: fontSize.sm, color: 'rgba(255,255,255,0.55)',
+    fontWeight: fontWeight.medium, marginTop: 2,
+  },
 });

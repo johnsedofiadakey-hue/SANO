@@ -54,5 +54,6 @@ sano-ai/__pycache__/
 sano-ai/*.pyc
 sano-ai/models/*.pt
 sano-ai/models/*.pth
+sano-ai/models/*.keras
 sano-ai/.venv/
 sano-ai/venv/

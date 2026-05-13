@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
+import * as FileSystem from 'expo-file-system';
+import { api } from '../services/api';
 
 const TOTAL_DURATION_MS = 30_000;
 const UPDATE_INTERVAL_MS = 3_000;
-const FINAL_BPM = 74;
-const FINAL_SPO2 = 98;
 
 function jitter(base: number, range: number): number {
   return Math.round(base + (Math.random() * 2 - 1) * range);
@@ -34,7 +34,7 @@ export function useHeartRate() {
     setIsMeasuring(false);
   }, []);
 
-  const startMeasurement = useCallback(() => {
+  const startMeasurement = useCallback(async (onRecord: () => Promise<string>) => {
     if (isMeasuring) return;
 
     setIsMeasuring(true);
@@ -57,18 +57,40 @@ export function useHeartRate() {
       setSpo2(jitter(98, 1));
     }, UPDATE_INTERVAL_MS);
 
-    // Finalise after 30 s
-    timeoutRef.current = setTimeout(() => {
+    try {
+      // Start recording!
+      const videoUri = await onRecord();
+      
+      // Read as base64!
+      const videoBase64 = await FileSystem.readAsStringAsync(videoUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Send to backend!
+      const response = await api.post('/ai/heartrate', {
+        video_base64: videoBase64,
+      });
+
+      const data = response.data;
+      
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (progressRef.current) clearInterval(progressRef.current);
       intervalRef.current = null;
       progressRef.current = null;
-      setBpm(FINAL_BPM);
-      setSpo2(FINAL_SPO2);
+      
+      setBpm(data.bpm);
+      setSpo2(data.spo2 || 98); // Fallback if not returned
       setProgress(1);
-      setResult({ bpm: FINAL_BPM, spo2: FINAL_SPO2 });
+      setResult({ bpm: data.bpm, spo2: data.spo2 || 98 });
       setIsMeasuring(false);
-    }, TOTAL_DURATION_MS);
+    } catch (error) {
+      console.error('Error during vitals measurement:', error);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (progressRef.current) clearInterval(progressRef.current);
+      intervalRef.current = null;
+      progressRef.current = null;
+      setIsMeasuring(false);
+    }
   }, [isMeasuring]);
 
   return { bpm, spo2, isMeasuring, progress, result, startMeasurement, stop };

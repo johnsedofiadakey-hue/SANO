@@ -23,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useScanStore } from '../../src/store/scanStore';
+import { useProfileStore } from '../../src/store/profileStore';
+import { useCycleStore } from '../../src/store/cycleStore';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
 import { DEMO_MODE, demoChatReply } from '../../src/services/demoMode';
 
@@ -33,12 +35,47 @@ interface Message {
   timestamp: Date;
 }
 
-const QUICK_REPLIES = [
-  'What causes hyperpigmentation?',
-  'Best SPF for dark skin?',
-  'Morning vs evening routine?',
-  'How to fade dark spots?',
-];
+function getQuickReplies(conditionName?: string): string[] {
+  const name = (conditionName ?? '').toLowerCase();
+  if (name.includes('hyperpigment') || name.includes('dark spot')) {
+    return [
+      'Why does it get worse in summer?',
+      'Best products for dark spots?',
+      'How long to see results?',
+      'Does Vitamin C help?',
+    ];
+  }
+  if (name.includes('acne') || name.includes('breakout')) {
+    return [
+      'What triggers breakouts?',
+      'Niacinamide or Salicylic acid?',
+      'Should I pop pimples?',
+      'Best routine for acne-prone skin?',
+    ];
+  }
+  if (name.includes('eczema') || name.includes('dermatitis')) {
+    return [
+      'What soothes eczema flares?',
+      'Best moisturiser for eczema?',
+      'Are steroids safe long-term?',
+      'What triggers my flares?',
+    ];
+  }
+  if (name.includes('razor') || name.includes('bump')) {
+    return [
+      'How to prevent razor bumps?',
+      'Best shaving technique?',
+      'Chemical vs blade exfoliation?',
+      'How to treat existing bumps?',
+    ];
+  }
+  return [
+    'What causes hyperpigmentation?',
+    'Best SPF for dark skin?',
+    'Morning vs evening routine?',
+    'How to fade dark spots?',
+  ];
+}
 
 const GREETING: Message = {
   id: '0',
@@ -92,8 +129,13 @@ export default function ChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const { currentResult } = useScanStore();
+  const { currentResult, scans } = useScanStore();
+  const { fitzpatrick, skinConcerns, glowScore, name: userName } = useProfileStore();
+  const { currentCycleDay, currentPhase } = useCycleStore();
   const { logEvent } = useDataCollection();
+
+  const topCondition = currentResult?.conditions?.[0]?.name;
+  const quickReplies = getQuickReplies(topCondition);
 
   useEffect(() => {
     logEvent('feature_opened', { feature: 'chat' });
@@ -129,16 +171,29 @@ export default function ChatScreen() {
         // Try real API; fall back to local matcher if unavailable
         try {
           const { api } = await import('../../src/services/api');
-          const scanContext = currentResult
-            ? `${currentResult.conditions[0]?.name ?? 'none'} (${Math.round((currentResult.conditions[0]?.severity ?? 0) * 100)}% severity)`
-            : 'No recent scan';
-          const { data } = await api.post<{ reply: string }>('/chat', {
+          const userContext = {
+            userName: userName || 'User',
+            fitzpatrick: fitzpatrick ?? null,
+            skinConcerns,
+            glowScore,
+            cycleDay: currentCycleDay,
+            cyclePhase: currentPhase,
+            latestScan: currentResult
+              ? {
+                  condition: currentResult.conditions[0]?.name ?? null,
+                  severity: currentResult.conditions[0]?.severity ?? 0,
+                  confidence: currentResult.conditions[0]?.confidence ?? 0,
+                }
+              : null,
+            scanCount: scans.length,
+          };
+          const { data } = await api.post<{ reply: string }>('/ai/chat', {
             message: text.trim(),
-            context: scanContext,
+            context: userContext,
           });
           reply = data.reply;
-        } catch {
-          reply = await demoChatReply(text.trim());
+        } catch (e: any) {
+          reply = `Error: Failed to connect to AI service. (${e.message || 'Unknown error'})`;
         }
       }
 
@@ -230,7 +285,7 @@ export default function ChatScreen() {
             <View style={styles.quickReplies}>
               <Text style={styles.quickLabel}>QUICK QUESTIONS</Text>
               <View style={styles.quickGrid}>
-                {QUICK_REPLIES.map(q => (
+                {quickReplies.map(q => (
                   <TouchableOpacity
                     key={q}
                     onPress={() => sendMessage(q)}

@@ -44,7 +44,10 @@ service cloud.firestore {
 
     // Analytics events — any authenticated user can write; backend reads only
     match /analytics_events/{eventId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['userId', 'type', 'data', 'createdAt'])
+                    && request.resource.data.type is string
+                    && request.resource.data.data is map;
       allow read:   if false;
     }
 

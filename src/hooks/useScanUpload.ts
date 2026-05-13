@@ -12,7 +12,7 @@ export function useScanUpload() {
   const [error, setError] = useState<string | null>(null);
 
   const { setCurrentResult, setProcessing, scans } = useScanStore();
-  const { logScan } = useDataCollection();
+  const { logScanCompleted: logScan } = useDataCollection();
   const { currentCycleDay } = useCycleStore();
   const { fitzpatrick } = useProfileStore();
 

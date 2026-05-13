@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,20 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '../../src/components/ui/Card';
-import { Chip } from '../../src/components/ui/Chip';
 import { Label } from '../../src/components/ui/Label';
-import { GradientButton } from '../../src/components/ui/GradientButton';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
-import { useCycleStore } from '../../src/store/cycleStore';
+import { useCycleStore, getSkinForecastForPhase } from '../../src/store/cycleStore';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
 import type { CyclePhase, Symptom } from '../../src/types/health';
 
 const { width } = Dimensions.get('window');
+const DAY_SIZE = Math.floor((width - spacing.lg * 2 - spacing.md * 2 - 6 * 4) / 7);
 
 const PHASE_COLORS: Record<CyclePhase, string> = {
-  period:     '#EC489933',
-  follicular: '#0891B233',
-  ovulation:  '#05996933',
-  luteal:     '#7C3AED33',
+  period:     '#EC489922',
+  follicular: '#0891B222',
+  ovulation:  '#05996922',
+  luteal:     '#7C3AED22',
 };
 
 const PHASE_BORDER: Record<CyclePhase, string> = {
@@ -54,29 +53,72 @@ const SYMPTOMS: { key: Symptom; label: string; emoji: string }[] = [
   { key: 'dry_skin',    label: 'Dry skin',    emoji: '🏜️' },
 ];
 
-const SKIN_FORECAST = [
-  { day: 'Mon', label: 'Clear', level: 0.15 },
-  { day: 'Tue', label: 'Clear', level: 0.2 },
-  { day: 'Wed', label: 'Oily',  level: 0.55 },
-  { day: 'Thu', label: 'Oily',  level: 0.65 },
-  { day: 'Fri', label: 'Risk',  level: 0.8 },
-  { day: 'Sat', label: 'Risk',  level: 0.75 },
-  { day: 'Sun', label: 'Better',level: 0.4 },
-];
+const DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function buildCalendarDates(): Date[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Start from 3 weeks ago, show 5 weeks (35 days)
+  const start = new Date(today);
+  start.setDate(start.getDate() - 21);
+  // Align to Sunday
+  const dow = start.getDay();
+  start.setDate(start.getDate() - dow);
+  const dates: Date[] = [];
+  for (let i = 0; i < 35; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    dates.push(d);
+  }
+  return dates;
+}
+
+function toISO(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
 
 export default function CycleScreen() {
   const router = useRouter();
-  const { currentCycleDay, symptoms, logSymptom, removeSymptom, logPeriodStart } = useCycleStore();
+  const {
+    currentCycleDay,
+    currentPhase,
+    nextPeriodDate,
+    periodDays,
+    periodStartDate,
+    symptoms,
+    logSymptom,
+    removeSymptom,
+    logPeriodStart,
+    togglePeriodDay,
+  } = useCycleStore();
   const { logEvent } = useDataCollection();
-  const today = currentCycleDay ?? 14;
-  const currentPhase = getPhaseForDay(today);
 
   React.useEffect(() => {
     logEvent('feature_opened', { feature: 'cycle' });
   }, [logEvent]);
 
-  const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
-  const COLS = 7;
+  const calDates = buildCalendarDates();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayISO = toISO(today);
+
+  const phase = currentPhase ?? 'follicular';
+  const cycleDay = currentCycleDay ?? 1;
+  const skinForecast = getSkinForecastForPhase(phase, cycleDay);
+
+  // Days until next period
+  let daysUntilNext: number | null = null;
+  if (nextPeriodDate) {
+    const next = new Date(nextPeriodDate);
+    next.setHours(0, 0, 0, 0);
+    daysUntilNext = Math.max(0, Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
+  const handleDayTap = async (d: Date) => {
+    const iso = toISO(d);
+    await togglePeriodDay(iso);
+    logEvent('cycle_day_toggled', { date: iso });
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -89,6 +131,19 @@ export default function CycleScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* Current phase banner */}
+        {currentCycleDay && (
+          <LinearGradient colors={[...GRADIENT]} style={styles.phaseBanner}>
+            <Text style={styles.phaseBannerLabel}>Day {currentCycleDay} · {phase.charAt(0).toUpperCase() + phase.slice(1)} Phase</Text>
+            <Text style={styles.phaseBannerSub}>
+              {phase === 'period' ? 'Skin is most sensitive — be gentle' :
+               phase === 'follicular' ? 'Great time for active ingredients' :
+               phase === 'ovulation' ? 'Skin looks its best this week' :
+               'Breakout risk rising — watch oil levels'}
+            </Text>
+          </LinearGradient>
+        )}
+
         {/* Phase legend */}
         <View style={styles.legendRow}>
           {(Object.keys(PHASE_COLORS) as CyclePhase[]).map(p => (
@@ -99,49 +154,76 @@ export default function CycleScreen() {
           ))}
         </View>
 
-        {/* 28-day calendar grid */}
+        {/* Calendar */}
         <Card variant="white" noPadding style={styles.calCard}>
+          {/* Day-of-week header */}
+          <View style={styles.dowRow}>
+            {DOW_LABELS.map(d => (
+              <Text key={d} style={styles.dowLabel}>{d}</Text>
+            ))}
+          </View>
           <View style={styles.calGrid}>
-            {DAYS.map(day => {
-              const phase = getPhaseForDay(day);
-              const isToday = day === today;
-              const bg = PHASE_COLORS[phase];
-              const border = isToday ? PHASE_BORDER[phase] : 'transparent';
+            {calDates.map((d, i) => {
+              const iso = toISO(d);
+              const isPeriodDay = periodDays.includes(iso);
+              const isToday = iso === todayISO;
+              const isFuture = d > today;
+
+              // Calculate cycle day for phase coloring
+              let phaseBg = 'transparent';
+              let phaseBorderColor = 'transparent';
+              if (periodStartDate) {
+                const start = new Date(periodStartDate);
+                start.setHours(0, 0, 0, 0);
+                const diff = Math.floor((d.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                if (diff >= 0 && diff < 28) {
+                  const dayInCycle = diff + 1;
+                  const p = getPhaseForDay(dayInCycle);
+                  phaseBg = PHASE_COLORS[p];
+                  if (isToday) phaseBorderColor = PHASE_BORDER[p];
+                }
+              }
+
               return (
                 <TouchableOpacity
-                  key={day}
+                  key={iso}
                   style={[
                     styles.calDay,
-                    { backgroundColor: bg, borderColor: border },
-                    isToday && styles.calDayToday,
+                    { backgroundColor: isPeriodDay ? '#EC489940' : phaseBg },
+                    { borderColor: isToday ? (phaseBorderColor || colors.pur) : 'transparent' },
+                    isFuture && styles.calDayFuture,
                   ]}
-                  onPress={() => logEvent('cycle_day_logged', { day })}
-                  activeOpacity={0.8}
+                  onPress={() => handleDayTap(d)}
+                  activeOpacity={0.75}
                 >
-                  <Text style={[styles.calDayNum, isToday && styles.calDayNumToday]}>
-                    {day}
+                  {isPeriodDay && (
+                    <View style={styles.periodCircle} />
+                  )}
+                  <Text style={[
+                    styles.calDayNum,
+                    isToday && styles.calDayNumToday,
+                    isPeriodDay && styles.calDayNumPeriod,
+                    isFuture && styles.calDayNumFuture,
+                  ]}>
+                    {d.getDate()}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
+          <Text style={styles.calHint}>Tap days to mark period · Pink = period days</Text>
         </Card>
 
         {/* Skin forecast */}
         <Label color={colors.t3}>Skin forecast this week</Label>
         <Card variant="tint" style={styles.forecastCard}>
           <View style={styles.forecastRow}>
-            {SKIN_FORECAST.map(f => {
+            {skinForecast.map(f => {
               const barColor = f.level > 0.6 ? colors.red : f.level > 0.35 ? colors.amber : colors.grn;
               return (
                 <View key={f.day} style={styles.forecastItem}>
                   <View style={styles.forecastBarWrap}>
-                    <View
-                      style={[
-                        styles.forecastBar,
-                        { height: f.level * 60, backgroundColor: barColor },
-                      ]}
-                    />
+                    <View style={[styles.forecastBar, { height: f.level * 60, backgroundColor: barColor }]} />
                   </View>
                   <Text style={styles.forecastDay}>{f.day}</Text>
                   <Text style={[styles.forecastLabel, { color: barColor }]}>{f.label}</Text>
@@ -172,22 +254,30 @@ export default function CycleScreen() {
           ))}
         </View>
 
-        {/* Period prediction */}
+        {/* Next period prediction */}
         <Card variant="tint" style={styles.predictionCard}>
           <View style={styles.predictionRow}>
             <Text style={styles.predictionEmoji}>🌙</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.predictionTitle}>Next period predicted</Text>
-              <Text style={styles.predictionDate}>In {28 - today} days · Day 1 of cycle</Text>
+              <Text style={styles.predictionDate}>
+                {daysUntilNext !== null
+                  ? daysUntilNext === 0
+                    ? 'Today · Day 1 of cycle'
+                    : `In ${daysUntilNext} days`
+                  : 'Log period days to get a prediction'}
+              </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => logPeriodStart(new Date().toISOString())}
-              style={styles.logBtn}
-            >
-              <LinearGradient colors={[...GRADIENT]} style={styles.logBtnGrad}>
-                <Text style={styles.logBtnText}>Log</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            {!periodStartDate && (
+              <TouchableOpacity
+                onPress={() => logPeriodStart(todayISO)}
+                style={styles.logBtn}
+              >
+                <LinearGradient colors={[...GRADIENT]} style={styles.logBtnGrad}>
+                  <Text style={styles.logBtnText}>Log today</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </View>
         </Card>
 
@@ -196,8 +286,6 @@ export default function CycleScreen() {
     </SafeAreaView>
   );
 }
-
-const DAY_SIZE = Math.floor((Dimensions.get('window').width - spacing.lg * 2 - spacing.md * 2 - 6 * 4) / 7);
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
@@ -213,13 +301,34 @@ const styles = StyleSheet.create({
   title: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.t1 },
   scroll: { padding: spacing.lg, gap: spacing.lg },
 
+  phaseBanner: {
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: 4,
+  },
+  phaseBannerLabel: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.white },
+  phaseBannerSub: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.85)' },
+
   legendRow: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: fontSize.xs, color: colors.t3, fontWeight: fontWeight.medium, textTransform: 'capitalize' },
 
   calCard: { overflow: 'hidden' },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: spacing.md, gap: 4 },
+  dowRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: 4,
+  },
+  dowLabel: {
+    width: DAY_SIZE,
+    textAlign: 'center',
+    fontSize: fontSize.xs2,
+    color: colors.t4,
+    fontWeight: fontWeight.bold,
+  },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   calDay: {
     width: DAY_SIZE,
     height: DAY_SIZE,
@@ -227,17 +336,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
+    position: 'relative',
   },
-  calDayToday: {
-    borderWidth: 2,
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  calDayNum: { fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: colors.t2 },
+  calDayFuture: { opacity: 0.45 },
+  calDayNum: { fontSize: 11, fontWeight: fontWeight.medium, color: colors.t2 },
   calDayNumToday: { fontWeight: fontWeight.extrabold, color: colors.t1 },
+  calDayNumPeriod: { color: '#EC4899', fontWeight: fontWeight.bold },
+  calDayNumFuture: { color: colors.t4 },
+  periodCircle: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#EC4899',
+  },
+  calHint: {
+    fontSize: fontSize.xs2,
+    color: colors.t4,
+    textAlign: 'center',
+    paddingBottom: spacing.sm,
+  },
 
   forecastCard: { gap: spacing.sm },
   forecastRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 100 },

@@ -79,6 +79,11 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
+// Dummy analytics route to prevent 404 spam from mobile app
+app.post('/analytics/batch', (req, res) => {
+  res.status(200).json({ status: 'ok', received: req.body.events?.length || 0 });
+});
+
 // Routes — gracefully skip if dependencies missing
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
