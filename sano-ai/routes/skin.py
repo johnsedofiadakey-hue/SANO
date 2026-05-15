@@ -155,7 +155,7 @@ def apply_dark_skin_correction(
 async def analyze_skin(request: ScanRequest):
     start = time.time()
 
-    if MODEL is None and not is_demo_mode():
+    if MODEL is None:
         raise HTTPException(status_code=503, detail="AI model not loaded")
 
     try:
