@@ -61,7 +61,8 @@ export const sendChatMessage = async (
 ): Promise<string> => {
 
   if (!ANTHROPIC_READY) {
-    return `[DEBUG] ANTHROPIC_READY=false. API_URL="${process.env.EXPO_PUBLIC_API_URL}" DEMO_MODE="${process.env.EXPO_PUBLIC_DEMO_MODE}"`;
+    await delay(1200 + Math.random() * 600);
+    return getKeywordResponse(message, userContext);
   }
 
   try {
@@ -76,14 +77,11 @@ export const sendChatMessage = async (
       body: JSON.stringify({ message, history: conversationHistory, userContext }),
     });
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as any;
-      return `[DEBUG] API error ${response.status}: ${body.detail ?? body.error ?? JSON.stringify(body).slice(0, 200)}`;
-    }
+    if (!response.ok) throw new Error(`AI service error: ${response.status}`);
     const data = await response.json();
     return data.response ?? getKeywordResponse(message, userContext);
-  } catch (err: any) {
-    return `[DEBUG] ${err?.message ?? String(err)}`;
+  } catch {
+    return getKeywordResponse(message, userContext);
   }
 };
 
