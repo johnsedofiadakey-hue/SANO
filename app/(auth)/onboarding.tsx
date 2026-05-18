@@ -25,10 +25,10 @@ import { GradientButton } from '../../src/components/ui/GradientButton';
 import { Chip } from '../../src/components/ui/Chip';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useProfileStore } from '../../src/store/profileStore';
-import type { Fitzpatrick, SkinConcern, SkinGoal } from '../../src/types/user';
+import type { Fitzpatrick, SkinConcern, SkinGoal, Gender } from '../../src/types/user';
 
 const { width } = Dimensions.get('window');
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const FITZPATRICK_TONES: { tone: Fitzpatrick; hex: string; name: string; desc: string }[] = [
   { tone: 1, hex: '#F5DCCA', name: 'Type I',   desc: 'Very fair, burns easily' },
@@ -188,10 +188,12 @@ export default function OnboardingScreen() {
     fitzpatrick,
     skinConcerns,
     skinGoal,
+    gender,
     setName,
     setFitzpatrick,
     toggleSkinConcern,
     setSkinGoal,
+    setGender,
     setCycleTracking,
     persist,
   } = useProfileStore();
@@ -225,10 +227,11 @@ export default function OnboardingScreen() {
 
   const canContinue = () => {
     if (step === 1) return name.trim().length >= 2;
-    if (step === 2) return fitzpatrick !== null;
-    if (step === 3) return skinConcerns.length > 0;
-    if (step === 4) return skinGoal !== null;
-    if (step === 5) return agreedToPolicy;
+    if (step === 2) return gender !== null;
+    if (step === 3) return fitzpatrick !== null;
+    if (step === 4) return skinConcerns.length > 0;
+    if (step === 5) return skinGoal !== null;
+    if (step === 6) return agreedToPolicy;
     return false;
   };
 
@@ -281,7 +284,40 @@ export default function OnboardingScreen() {
             </ScrollView>
           </View>
 
-          {/* Step 2 — Fitzpatrick */}
+          {/* Step 2 — Gender */}
+          <View style={styles.slide}>
+            <ScrollView contentContainerStyle={styles.slideScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.title}>How do you identify?</Text>
+              <Text style={styles.subtitle}>This helps us show the right body map and personalise your health features</Text>
+              <View style={styles.goalsList}>
+                {([
+                  { key: 'female' as Gender, label: 'Female', emoji: '👩🏾' },
+                  { key: 'male' as Gender,   label: 'Male',   emoji: '👨🏾' },
+                  { key: 'other' as Gender,  label: 'Non-binary / Prefer not to say', emoji: '🧑🏾' },
+                ] as { key: Gender; label: string; emoji: string }[]).map(g => (
+                  <TouchableOpacity
+                    key={g.key}
+                    onPress={() => setGender(g.key)}
+                    activeOpacity={0.85}
+                    style={[styles.goalCard, gender === g.key && styles.goalCardSelected]}
+                  >
+                    <Text style={styles.goalEmoji}>{g.emoji}</Text>
+                    <Text style={[styles.goalLabel, gender === g.key && styles.goalLabelSelected]}>{g.label}</Text>
+                    {gender === g.key && (
+                      <LinearGradient colors={[...GRADIENT]} style={styles.goalCheck}>
+                        <Text style={styles.goalCheckText}>✓</Text>
+                      </LinearGradient>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.subtitle, { fontSize: fontSize.xs, marginTop: spacing.sm }]}>
+                You can change this anytime in your profile settings.
+              </Text>
+            </ScrollView>
+          </View>
+
+          {/* Step 3 — Fitzpatrick */}
           <View style={styles.slide}>
             <ScrollView contentContainerStyle={styles.slideScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>Select your skin tone</Text>
@@ -309,7 +345,7 @@ export default function OnboardingScreen() {
             </ScrollView>
           </View>
 
-          {/* Step 3 — Concerns */}
+          {/* Step 4 — Concerns */}
           <View style={styles.slide}>
             <ScrollView contentContainerStyle={styles.slideScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>What's your main skin concern?</Text>
@@ -328,7 +364,7 @@ export default function OnboardingScreen() {
             </ScrollView>
           </View>
 
-          {/* Step 4 — Goal */}
+          {/* Step 5 — Goal */}
           <View style={styles.slide}>
             <ScrollView contentContainerStyle={styles.slideScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>What's your goal?</Text>
@@ -356,7 +392,7 @@ export default function OnboardingScreen() {
             </ScrollView>
           </View>
 
-          {/* Step 5 — Privacy & Consent */}
+          {/* Step 6 — Privacy & Consent */}
           <View style={styles.slide}>
             <ScrollView contentContainerStyle={styles.slideScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>Your Privacy Matters</Text>
@@ -395,57 +431,105 @@ export default function OnboardingScreen() {
             </ScrollView>
           </View>
 
-          {/* Step 6 — Cycle tracking opt-in */}
+          {/* Step 7 — Cycle tracking opt-in (female/other) or Health tracking (male) */}
           <View style={styles.slide}>
             <ScrollView contentContainerStyle={styles.slideScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.cycleEmoji}>🌙</Text>
-              <Text style={styles.title}>Track how your cycle affects your skin?</Text>
-              <Text style={styles.subtitle}>
-                Hormonal changes directly impact your skin. SANO predicts oiliness, breakout risk, and sensitivity based on your cycle day.
-              </Text>
+              {gender === 'male' ? (
+                <>
+                  <Text style={styles.cycleEmoji}>💪</Text>
+                  <Text style={styles.title}>Track your health metrics?</Text>
+                  <Text style={styles.subtitle}>
+                    SANO can monitor your heart rate, sleep, and stress — and connect how they affect your skin.
+                  </Text>
 
-              <View style={styles.cycleBenefits}>
-                {[
-                  { emoji: '📅', text: 'Know your breakout-risk days in advance' },
-                  { emoji: '🧴', text: 'Adjust your routine by cycle phase' },
-                  { emoji: '✨', text: 'Understand clear skin vs oily days' },
-                ].map(b => (
-                  <View key={b.text} style={styles.cycleBenefit}>
-                    <Text style={styles.cycleBenefitEmoji}>{b.emoji}</Text>
-                    <Text style={styles.cycleBenefitText}>{b.text}</Text>
+                  <View style={styles.cycleBenefits}>
+                    {[
+                      { emoji: '💓', text: 'Camera-based heart rate — no wearable needed' },
+                      { emoji: '😴', text: 'Sleep tracking and skin recovery correlation' },
+                      { emoji: '🧠', text: 'Stress and cortisol affect sebum production' },
+                    ].map(b => (
+                      <View key={b.text} style={styles.cycleBenefit}>
+                        <Text style={styles.cycleBenefitEmoji}>{b.emoji}</Text>
+                        <Text style={styles.cycleBenefitText}>{b.text}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
 
-              <Text style={styles.cyclePrivacy}>
-                🔒 Cycle data stays on your device. Never shared without consent.
-              </Text>
+                  <Text style={styles.cyclePrivacy}>
+                    🔒 Health data stays on your device. Never shared without consent.
+                  </Text>
 
-              <View style={styles.cycleButtons}>
-                <TouchableOpacity
-                  style={styles.cycleYes}
-                  onPress={() => handleCycleChoice(true)}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cycleYesGrad}>
-                    <Text style={styles.cycleYesText}>Yes, track my cycle 🌙</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.cycleSkip}
-                  onPress={() => handleCycleChoice(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.cycleSkipText}>Skip for now</Text>
-                </TouchableOpacity>
-              </View>
+                  <View style={styles.cycleButtons}>
+                    <TouchableOpacity
+                      style={styles.cycleYes}
+                      onPress={() => handleCycleChoice(false)}
+                      activeOpacity={0.85}
+                    >
+                      <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cycleYesGrad}>
+                        <Text style={styles.cycleYesText}>Yes, track my health 💪</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.cycleSkip}
+                      onPress={() => handleCycleChoice(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.cycleSkipText}>Skip for now</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.cycleEmoji}>🌙</Text>
+                  <Text style={styles.title}>Track how your cycle affects your skin?</Text>
+                  <Text style={styles.subtitle}>
+                    Hormonal changes directly impact your skin. SANO predicts oiliness, breakout risk, and sensitivity based on your cycle day.
+                  </Text>
+
+                  <View style={styles.cycleBenefits}>
+                    {[
+                      { emoji: '📅', text: 'Know your breakout-risk days in advance' },
+                      { emoji: '🧴', text: 'Adjust your routine by cycle phase' },
+                      { emoji: '✨', text: 'Understand clear skin vs oily days' },
+                    ].map(b => (
+                      <View key={b.text} style={styles.cycleBenefit}>
+                        <Text style={styles.cycleBenefitEmoji}>{b.emoji}</Text>
+                        <Text style={styles.cycleBenefitText}>{b.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text style={styles.cyclePrivacy}>
+                    🔒 Cycle data stays on your device. Never shared without consent.
+                  </Text>
+
+                  <View style={styles.cycleButtons}>
+                    <TouchableOpacity
+                      style={styles.cycleYes}
+                      onPress={() => handleCycleChoice(true)}
+                      activeOpacity={0.85}
+                    >
+                      <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cycleYesGrad}>
+                        <Text style={styles.cycleYesText}>Yes, track my cycle 🌙</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.cycleSkip}
+                      onPress={() => handleCycleChoice(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.cycleSkipText}>Skip for now</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </ScrollView>
           </View>
 
         </Animated.View>
       </View>
 
-      {/* Footer — hidden on step 5 (has its own buttons) */}
+      {/* Footer — hidden on step 7 (has its own buttons) */}
       {step < TOTAL_STEPS && (
         <View style={styles.footer}>
           {step > 1 && (

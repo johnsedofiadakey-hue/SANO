@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import type { Fitzpatrick, SkinConcern, SkinGoal } from '../types/user';
+import type { Fitzpatrick, SkinConcern, SkinGoal, Gender } from '../types/user';
 import { firestoreService } from '../services/firestore';
 import { auth } from '../config/firebase';
 
@@ -13,6 +13,7 @@ interface ProfileState {
   skinConcerns: SkinConcern[];
   skinGoal: SkinGoal | null;
   name: string;
+  gender: Gender | null;
   glowScore: number;
   streakDays: number;
   cycleTracking: boolean;
@@ -23,6 +24,7 @@ interface ProfileState {
   toggleSkinConcern: (concern: SkinConcern) => void;
   setSkinGoal: (goal: SkinGoal) => void;
   setName: (name: string) => void;
+  setGender: (g: Gender) => void;
   setGlowScore: (score: number) => void;
   setCycleTracking: (val: boolean) => void;
   setUndertone: (val: 'warm' | 'cool' | 'neutral') => void;
@@ -37,6 +39,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   skinConcerns: [],
   skinGoal: null,
   name: '',
+  gender: null,
   glowScore: 0,
   streakDays: 0,
   cycleTracking: false,
@@ -58,17 +61,18 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   setSkinGoal: (goal) => set({ skinGoal: goal }),
   setName: (name) => set({ name }),
+  setGender: (g) => set({ gender: g }),
   setGlowScore: (score) => set({ glowScore: Math.max(0, Math.min(100, Math.round(score))) }),
   setCycleTracking: (val) => set({ cycleTracking: val }),
   setSubscription: (tier) => set({ subscription: tier }),
   setUndertone: (val) => set({ undertone: val }),
 
   persist: async () => {
-    const { fitzpatrick, skinConcerns, skinGoal, name, glowScore, streakDays, cycleTracking, undertone, subscription } = get();
+    const { fitzpatrick, skinConcerns, skinGoal, name, gender, glowScore, streakDays, cycleTracking, undertone, subscription } = get();
     try {
       // 1. Local Persistence
       await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify({
-        fitzpatrick, skinConcerns, skinGoal, name, glowScore, streakDays, cycleTracking, undertone, subscription,
+        fitzpatrick, skinConcerns, skinGoal, name, gender, glowScore, streakDays, cycleTracking, undertone, subscription,
       }));
 
       // 2. Cloud Persistence (Sync to Firestore if logged in)
@@ -78,6 +82,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
           fitzpatrick: fitzpatrick ?? undefined,
           primaryConcern: skinConcerns[0] ?? undefined, // Sync primary one
           skinGoal: skinGoal ?? undefined,
+          gender: gender ?? undefined,
           researchOptIn: true, // Default to opt-in for research
         });
       }
@@ -96,6 +101,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
           skinConcerns: saved.skinConcerns ?? [],
           skinGoal: saved.skinGoal ?? null,
           name: saved.name ?? '',
+          gender: saved.gender ?? null,
           glowScore: saved.glowScore ?? 0,
           streakDays: saved.streakDays ?? 0,
           cycleTracking: saved.cycleTracking ?? false,
@@ -127,6 +133,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         skinConcerns: [],
         skinGoal: null,
         name: '',
+        gender: null,
         cycleTracking: false,
         undertone: null,
         glowScore: 0,

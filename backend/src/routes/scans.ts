@@ -21,6 +21,18 @@ async function queueForLabelling(scanResult: any): Promise<void> {
   });
 }
 
+const ZONE_CONTEXT: Record<string, string> = {
+  face: 'Likely: acne, hyperpigmentation, melasma, dark spots, eczema.',
+  beard: 'IMPORTANT: This is a beard/shaving zone. Razor bumps and pseudofolliculitis barbae are primary concerns — NOT acne vulgaris. Do not diagnose as acne.',
+  neck: 'Likely: hyperpigmentation, razor bumps, acanthosis nigricans.',
+  chest: 'Likely: acne, keloids, tinea versicolor, folliculitis.',
+  back: 'Likely: back acne (bacne), folliculitis, keloids. Back acne is valid here.',
+  arms: 'IMPORTANT: Bumps on arms are most likely keratosis pilaris or eczema — NOT acne vulgaris.',
+  belly: 'Likely: stretch marks, hyperpigmentation, tinea versicolor. Acne is very unlikely here.',
+  legs: 'CRITICAL: Acne vulgaris does NOT occur on legs. Diagnose bumps as razor bumps, folliculitis, or keratosis pilaris only.',
+  scalp: 'Likely: dandruff, seborrheic dermatitis, folliculitis.',
+};
+
 const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -46,10 +58,11 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     if (ANTHROPIC_READY && anthropic) {
       console.log('Using Claude Vision for skin analysis...');
       try {
+        const zoneContext = bodyArea ? (ZONE_CONTEXT[bodyArea] ?? '') : '';
         const result = await anthropic.messages.create({
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
-          system: 'You are a dermatologist AI. Analyze the image and return ONLY a JSON object matching this schema: { "scan_id": "string", "conditions": [ { "name": "string", "location": "string", "severity": 0.0-1.0, "confidence": 0.0-1.0, "doctor_confirmed": false } ], "skin_tone": 1-6, "model_version": "claude-sonnet-4-6", "processing_time_ms": 0 }',
+          system: 'You are a dermatologist AI specialising in African and dark skin tones (Fitzpatrick IV–VI). Analyze the image and return ONLY a JSON object matching this schema: { "scan_id": "string", "conditions": [ { "name": "string", "location": "string", "severity": 0.0-1.0, "confidence": 0.0-1.0, "doctor_confirmed": false } ], "skin_tone": 1-6, "model_version": "claude-sonnet-4-6", "processing_time_ms": 0 }. Body zone being scanned: ' + (bodyArea ?? 'unknown') + '. Zone context: ' + zoneContext + '. Only diagnose conditions that are anatomically plausible for this zone.',
           messages: [
             {
               role: 'user',

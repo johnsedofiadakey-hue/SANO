@@ -11,7 +11,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BodyMannequin, BODY_ZONES } from '../../src/components/ui/BodyMannequin';
-import type { BodyZone } from '../../src/components/ui/BodyMannequin';
+import type { BodyZone } from '../../src/data/zoneProfiles';
+import { ZONE_PROFILES } from '../../src/data/zoneProfiles';
 import { GradientButton } from '../../src/components/ui/GradientButton';
 import { Card } from '../../src/components/ui/Card';
 import { colors, spacing, fontSize, fontWeight, radius } from '../../src/theme';
@@ -24,7 +25,7 @@ export default function MannequinScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState<BodyZone | null>(null);
   const { setSelectedBodyArea, scans } = useScanStore();
-  const { subscription } = useProfileStore();
+  const { subscription, gender } = useProfileStore();
 
   const scansThisMonth = scans.filter(s => {
     const ts = (s as any).createdAt?.toDate?.() ?? new Date((s as any).createdAt ?? 0);
@@ -68,7 +69,7 @@ export default function MannequinScreen() {
       >
         <Text style={styles.instruction}>Tap the area you want to scan</Text>
 
-        <BodyMannequin selected={selected} onSelect={setSelected} />
+        <BodyMannequin selected={selected} onSelect={setSelected} gender={gender} />
 
         {selected && (
           <Card variant="tint" style={styles.infoCard}>
@@ -87,6 +88,11 @@ export default function MannequinScreen() {
             <Text style={styles.infoHint}>
               Make sure the area is well-lit and free of makeup for best results.
             </Text>
+            {selected && ZONE_PROFILES[selected]?.aiContext && (
+              <Text style={[styles.infoHint, { borderTopWidth: 0, paddingTop: 0, color: colors.pur }]}>
+                🤖 AI knows: {ZONE_PROFILES[selected].aiContext.slice(0, 100)}…
+              </Text>
+            )}
           </Card>
         )}
       </ScrollView>

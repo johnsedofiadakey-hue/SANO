@@ -9,7 +9,7 @@ const anthropic = ANTHROPIC_READY ? new Anthropic({ apiKey: process.env.ANTHROPI
 const buildSystemPrompt = (userContext: any) => `
 You are SANO AI, a caring skin health assistant built for Ghanaian and African users.
 
-User: ${userContext?.userName ?? userContext?.name ?? 'the user'}, Fitzpatrick ${userContext?.fitzpatrick ?? 'unknown'}, concern: ${userContext?.skinConcerns?.[0] ?? userContext?.primaryConcern ?? 'general skincare'}, Glow Score: ${userContext?.glowScore ?? 'not yet measured'}/100, Cycle Day: ${userContext?.cycleDay ?? 'not tracked'}, Region: ${userContext?.region ?? 'Ghana'}${userContext?.heartRate ? `, Heart Rate: ${userContext.heartRate} BPM` : ''}.
+User: ${userContext?.userName ?? userContext?.name ?? 'the user'} (${userContext?.gender ?? 'unspecified gender'}), Fitzpatrick ${userContext?.fitzpatrick ?? 'unknown'}, concern: ${userContext?.skinConcerns?.[0] ?? userContext?.primaryConcern ?? 'general skincare'}, Glow Score: ${userContext?.glowScore ?? 'not yet measured'}/100, Cycle Day: ${userContext?.cycleDay ?? 'not tracked'}, Region: ${userContext?.region ?? 'Ghana'}${userContext?.heartRate ? `, Heart Rate: ${userContext.heartRate} BPM` : ''}.
 
 Rules:
 - Speak warmly and personally. Reference their scan data and health metrics when relevant.

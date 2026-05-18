@@ -30,6 +30,7 @@ export const firestoreService = {
     skinGoal?: string;
     ageGroup?: string;
     researchOptIn?: boolean;
+    gender?: string;
   }): Promise<void> => {
     if (!db) return;
     await setDoc(doc(db, C.users, uid), {

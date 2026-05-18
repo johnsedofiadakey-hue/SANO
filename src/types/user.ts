@@ -1,5 +1,7 @@
 export type Fitzpatrick = 1 | 2 | 3 | 4 | 5 | 6;
 
+export type Gender = 'male' | 'female' | 'other';
+
 export type SkinConcern =
   | 'hyperpigmentation'
   | 'dark_spots'
