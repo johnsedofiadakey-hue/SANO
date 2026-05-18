@@ -51,6 +51,55 @@ service cloud.firestore {
       allow read:   if false;
     }
 
+    // Community posts — any authenticated user can read; author can delete own
+    match /community_posts/{postId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() >= 10
+                    && request.resource.data.text.size() <= 500;
+      allow update: if request.auth != null
+                    && (request.auth.uid == resource.data.uid
+                        || request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['likeCount', 'likedBy', 'replyCount', 'flaggedBy']));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+
+      // Replies subcollection
+      match /replies/{replyId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() >= 2;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+      }
+    }
+
+    // Consultations — patient and assigned doctor can read; patients create
+    match /consultations/{consultId} {
+      allow read:   if request.auth != null
+                    && (request.auth.uid == resource.data.patientUid
+                        || request.auth.uid == resource.data.doctorUid);
+      allow create: if request.auth != null
+                    && request.resource.data.patientUid == request.auth.uid;
+      allow update: if request.auth != null
+                    && (request.auth.uid == resource.data.patientUid
+                        || request.auth.uid == resource.data.doctorUid);
+      allow delete: if false;
+    }
+
+    // Doctors — read-only for authenticated users
+    match /doctors/{doctorId} {
+      allow read:  if request.auth != null;
+      allow write: if false;
+    }
+
+    // Label queue — backend admin only (Firebase Admin SDK bypasses rules)
+    match /label_queue/{itemId} {
+      allow read, write: if false;
+    }
+
     // Deny everything else
     match /{document=**} {
       allow read, write: if false;

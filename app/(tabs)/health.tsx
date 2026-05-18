@@ -44,11 +44,11 @@ const STATUS_COLOR = {
 } as const;
 
 const TESTS = [
-  { name: 'Malaria Detection',     emoji: '🦟', pro: true,  desc: 'Rapid symptom + eye scan analysis',         tint: '#FEF9C3' },
-  { name: 'Blood Group Est.',      emoji: '🩸', pro: true,  desc: 'Estimate from vein pattern (experimental)',  tint: '#FEE2E2' },
-  { name: 'Sickle Cell Screening', emoji: '🔴', pro: true,  desc: 'Risk score from family history + symptoms',  tint: '#FFF1F2' },
+  { name: 'Malaria Screening',     emoji: '🦟', pro: false, desc: 'Symptom-based risk assessment',              tint: '#FEF9C3', route: '/features/malaria' as const },
+  { name: 'Blood / Sickle Cell',   emoji: '🩸', pro: false, desc: 'Log blood group + sickle cell risk screen',  tint: '#FEE2E2', route: '/features/blood-test' as const },
   { name: 'Heart Rate (PPG)',       emoji: '💓', pro: false, desc: 'Camera-based PPG — tap to measure',          tint: '#FDF4FF', action: 'bpm' as const },
-  { name: 'Skin Hydration Level',  emoji: '💧', pro: false, desc: 'Analyse moisture from scan',                 tint: '#EFF6FF' },
+  { name: 'Doctor Consultation',   emoji: '👨‍⚕️', pro: false, desc: 'Ask a verified dermatologist',               tint: '#F0FDF4', route: '/features/consult' as const },
+  { name: 'Skin Hydration Level',  emoji: '💧', pro: true,  desc: 'Analyse moisture from scan',                 tint: '#EFF6FF' },
 ] as const;
 
 function PulsingHeart({ active }: { active: boolean }) {
@@ -198,6 +198,7 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
 }
 
 export default function HealthScreen() {
+  const router = useRouter();
   const [bpmModalOpen, setBpmModalOpen] = useState(false);
   const [measurementResult, setMeasurementResult] = useState<{ bpm: number; spo2: number } | null>(null);
 
@@ -222,12 +223,12 @@ export default function HealthScreen() {
   const [loggedStress, setLoggedStress] = useState<string | null>(null);
 
   const handleSync = async () => {
-    const permission = await healthConnectService.requestPermissions();
-    if (permission) {
-      const data = await healthConnectService.syncData();
-      if (data.sleepHrs) {
-        setLoggedSleep(String(data.sleepHrs));
-      }
+    if (!healthConnectService.isAvailable()) return;
+    const uid = auth?.currentUser?.uid;
+    if (!uid) return;
+    const data = await healthConnectService.syncAll(uid);
+    if (data.sleepHours?.value) {
+      setLoggedSleep(String(data.sleepHours.value));
     }
   };
 
@@ -290,9 +291,11 @@ export default function HealthScreen() {
                   onPress={
                     'action' in t && t.action === 'bpm'
                       ? () => setBpmModalOpen(true)
-                      : t.pro
-                        ? () => Alert.alert('Coming soon', `${t.name} will be available in the next SANO update.`)
-                        : undefined
+                      : 'route' in t && t.route
+                        ? () => router.push(t.route as any)
+                        : t.pro
+                          ? () => Alert.alert('Coming soon', `${t.name} will be available in the next SANO update.`)
+                          : undefined
                   }
                   style={styles.testRow}
                 >

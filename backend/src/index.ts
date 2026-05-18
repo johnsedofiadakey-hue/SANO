@@ -166,6 +166,14 @@ try {
   console.log('⚠ Payments routes skipped:', e.message);
 }
 
+try {
+  const labelRoutes = require('./routes/labelling').default;
+  app.use('/labelling', authenticate, labelRoutes);
+  console.log('✓ Labelling routes loaded');
+} catch (e: any) {
+  console.log('⚠ Labelling routes skipped:', e.message);
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`SANO API running on port ${PORT}`);
   console.log(`Health: http://0.0.0.0:${PORT}/health`);

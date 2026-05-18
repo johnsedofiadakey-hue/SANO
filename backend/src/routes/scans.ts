@@ -2,6 +2,25 @@ import express from 'express';
 import multer from 'multer';
 import Anthropic from '@anthropic-ai/sdk';
 
+async function queueForLabelling(scanResult: any): Promise<void> {
+  const admin = require('firebase-admin');
+  if (!admin.apps.length) return;
+  const db = admin.firestore();
+  await db.collection('label_queue').add({
+    scanId: scanResult.scan_id,
+    imageStoragePath: null,
+    condition: scanResult.conditions?.[0]?.name ?? 'unknown',
+    confidence: scanResult.confidence ?? 0,
+    skinTone: scanResult.skin_tone ?? 5,
+    area: scanResult.conditions?.[0]?.location ?? 'face',
+    status: 'pending',
+    labelStudioTaskId: null,
+    labeledBy: null,
+    labeledAt: null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
 const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -99,6 +118,12 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     }
 
     const data = await response.json();
+
+    // Auto-queue low-confidence scans for human labelling
+    if ((data.confidence ?? 1) < 0.75 && data.scan_id && !data.mock) {
+      queueForLabelling(data).catch(e => console.warn('Label queue failed (non-critical):', e.message));
+    }
+
     res.json(data);
   } catch (error: any) {
     if (error.name === 'AbortError') {
