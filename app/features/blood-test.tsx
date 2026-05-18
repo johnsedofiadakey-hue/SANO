@@ -63,6 +63,8 @@ export default function BloodTestScreen() {
   const [familyHistory, setFamilyHistory] = useState<string>('');
   const [sickleSymptoms, setSickleSymptoms] = useState<string[]>([]);
   const [sickleAssessed, setSickleAssessed] = useState(false);
+  const [aiSickleInsight, setAiSickleInsight] = useState<string | null>(null);
+  const [sickleInsightLoading, setSickleInsightLoading] = useState(false);
 
   // Blood group state
   const [knownBlood, setKnownBlood] = useState<string>('');
@@ -77,6 +79,14 @@ export default function BloodTestScreen() {
   const handleSickleAssess = async () => {
     if (!familyHistory) { Alert.alert('Family history required', 'Please select your family history first.'); return; }
     setSickleAssessed(true);
+    setSickleInsightLoading(true);
+    import('../../src/services/aiChat').then(({ sendChatMessage }) =>
+      sendChatMessage(
+        `I've completed a sickle cell risk screen. Family history: ${familyHistory}. Symptoms: ${sickleSymptoms.length > 0 ? sickleSymptoms.join(', ') : 'none reported'}. Risk level: ${sickleCellRisk(familyHistory, sickleSymptoms).level}. I'm in Ghana. Give me a warm 2-sentence personalised message about next steps.`,
+        [],
+        { region: 'Ghana' }
+      )
+    ).then(setAiSickleInsight).catch(() => {}).finally(() => setSickleInsightLoading(false));
     if (user) {
       await firestoreService.saveHealthEvent(user.uid, {
         type: 'sickle_cell_screen',
@@ -171,6 +181,14 @@ export default function BloodTestScreen() {
                     </Text>
                   </View>
                   <Text style={styles.adviceText}>{sickleResult.advice}</Text>
+                  {(sickleInsightLoading || aiSickleInsight) && (
+                    <Card variant="tint" style={{ gap: 6 }}>
+                      <Text style={{ fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.pur }}>🤖 SANO AI</Text>
+                      <Text style={{ fontSize: fontSize.md, color: colors.t2, lineHeight: 22 }}>
+                        {sickleInsightLoading ? 'Generating personalised guidance…' : aiSickleInsight}
+                      </Text>
+                    </Card>
+                  )}
                   <Card variant="tint" style={{ gap: spacing.xs }}>
                     <Text style={styles.testTitle}>🏥 Where to get tested in Ghana</Text>
                     {['Korle-Bu Haematology Dept — HbEP test', 'Komfo Anokye Teaching Hospital, Kumasi', 'Lister Hospital, Accra — Private, same-day'].map((l, i) => (

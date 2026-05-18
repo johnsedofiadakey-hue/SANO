@@ -34,6 +34,8 @@ export default function ConsultNewScreen() {
   const [message, setMessage] = useState('');
   const [attachScan, setAttachScan] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [aiTips, setAiTips] = useState<string | null>(null);
+  const [tipsLoading, setTipsLoading] = useState(false);
 
   const latestScan = scans[0];
   const doctorName = decodeURIComponent(params.doctorName ?? '');
@@ -88,7 +90,18 @@ export default function ConsultNewScreen() {
             <TouchableOpacity
               key={s}
               style={[styles.subjectOption, subject === s && styles.subjectActive]}
-              onPress={() => setSubject(s)}
+              onPress={() => {
+                setSubject(s);
+                setAiTips(null);
+                setTipsLoading(true);
+                import('../../src/services/aiChat').then(({ sendChatMessage }) =>
+                  sendChatMessage(
+                    `I'm writing a consultation to a dermatologist about: "${s}". What are 3 key pieces of information I should include to get the best advice? Reply with 3 concise bullet points only.`,
+                    [],
+                    {}
+                  )
+                ).then(setAiTips).catch(() => {}).finally(() => setTipsLoading(false));
+              }}
             >
               <View style={[styles.radio, subject === s && styles.radioActive]} />
               <Text style={[styles.subjectText, subject === s && { color: colors.pur, fontWeight: fontWeight.semibold }]}>
@@ -96,6 +109,15 @@ export default function ConsultNewScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+
+          {(tipsLoading || aiTips) && (
+            <Card variant="tint" style={styles.tipsCard}>
+              <Text style={styles.tipsHeader}>🤖 What to include</Text>
+              <Text style={styles.tipsText}>
+                {tipsLoading ? 'Getting tips from SANO AI…' : aiTips}
+              </Text>
+            </Card>
+          )}
 
           <Text style={styles.sectionLabel}>Describe your concern</Text>
           <Card variant="white" style={styles.inputCard}>
@@ -203,4 +225,7 @@ const styles = StyleSheet.create({
 
   disclaimer: { borderColor: 'rgba(220,38,38,0.2)', backgroundColor: 'rgba(220,38,38,0.04)' },
   disclaimerText: { fontSize: fontSize.sm, color: colors.t2, lineHeight: 20 },
+  tipsCard: { gap: spacing.xs },
+  tipsHeader: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.pur },
+  tipsText: { fontSize: fontSize.md, color: colors.t2, lineHeight: 22 },
 });

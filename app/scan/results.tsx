@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -70,7 +70,7 @@ export default function ResultsScreen() {
   const area = (params.area ?? 'face') as BodyZone;
 
   const { currentResult, isProcessing } = useScanStore();
-  const { glowScore } = useProfileStore();
+  const { glowScore, fitzpatrick, skinConcerns } = useProfileStore();
   const { logEvent } = useDataCollection();
 
   React.useEffect(() => {
@@ -98,6 +98,20 @@ export default function ResultsScreen() {
       </SafeAreaView>
     );
   }
+
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+
+  useEffect(() => {
+    setInsightLoading(true);
+    import('../../src/services/aiChat').then(({ sendChatMessage }) =>
+      sendChatMessage(
+        `My skin scan detected ${topCondition.name} on my ${areaLabel} with ${Math.round(topCondition.severity * 100)}% severity and ${Math.round(topCondition.confidence * 100)}% confidence. I have Fitzpatrick type ${fitzpatrick ?? 'unknown'} skin. My primary concern is ${skinConcerns?.[0] ?? 'general skincare'}. Give me a warm 2-3 sentence personalised interpretation and the single most important thing I should do today.`,
+        [],
+        { fitzpatrick, skinConcerns, glowScore }
+      )
+    ).then(setAiInsight).catch(() => {}).finally(() => setInsightLoading(false));
+  }, []);
 
   const conditionKey = topCondition.name.toLowerCase().replace(/\s+/g, '_').replace('healthy_clear', 'default') as keyof typeof WHAT_HELPS;
   const helps = WHAT_HELPS[conditionKey] ?? WHAT_HELPS.default;
@@ -161,9 +175,7 @@ export default function ResultsScreen() {
             </View>
           </View>
           <Text style={styles.aiText}>
-            The analysis suggests potential {topCondition.name} on your {areaLabel.toLowerCase()} with{' '}
-            {Math.round(topCondition.severity * 100)}% severity. This is commonly observed in Fitzpatrick
-            types 4–6. Consider consulting a dermatologist for a professional evaluation.
+            {insightLoading ? 'SANO AI is personalising your results…' : (aiInsight ?? `The analysis detected ${topCondition.name} on your ${areaLabel.toLowerCase()} with ${Math.round(topCondition.severity * 100)}% severity.`)}
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/features/chat')}

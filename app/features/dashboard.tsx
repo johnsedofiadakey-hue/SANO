@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { Label } from '../../src/components/ui/Label';
 import { GradientButton } from '../../src/components/ui/GradientButton';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useScanStore } from '../../src/store/scanStore';
+import { useProfileStore } from '../../src/store/profileStore';
 
 type Filter = 'All' | 'Face' | 'Neck' | 'Body';
 
@@ -38,6 +40,23 @@ export default function DashboardScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const { scans } = useScanStore();
+  const { glowScore, skinConcerns, fitzpatrick } = useProfileStore();
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const fetched = useRef(false);
+
+  useEffect(() => {
+    if (scans.length === 0 || fetched.current) return;
+    fetched.current = true;
+    setInsightLoading(true);
+    import('../../src/services/aiChat').then(({ sendChatMessage }) =>
+      sendChatMessage(
+        `I have ${scans.length} skin scan${scans.length > 1 ? 's' : ''} recorded. My Glow Score is ${glowScore ?? 'not yet measured'}/100. Primary concern: ${skinConcerns?.[0] ?? 'general skincare'}. Fitzpatrick: ${fitzpatrick ?? 'unknown'}. Give me a warm 1-2 sentence summary of my skin health status and the single most impactful thing I can do to improve.`,
+        [],
+        { glowScore, skinConcerns, fitzpatrick, scanCount: scans.length }
+      )
+    ).then(setAiInsight).catch(() => {}).finally(() => setInsightLoading(false));
+  }, [scans.length]);
 
   // Group real scans by body area
   const groups = scans.reduce((acc: any[], scan) => {
@@ -124,6 +143,20 @@ export default function DashboardScreen() {
         ) : (
           <>
             <Label color={colors.t3}>Scan history</Label>
+            {(insightLoading || aiInsight) && (
+              <Card variant="tint" style={styles.aiCard}>
+                <View style={styles.aiHeader}>
+                  <LinearGradient colors={[...GRADIENT]} style={styles.aiIcon}>
+                    <Text style={{ fontSize: 14 }}>🤖</Text>
+                  </LinearGradient>
+                  <Text style={styles.aiTitle}>SANO AI Insight</Text>
+                  {insightLoading && <ActivityIndicator color={colors.pur} size="small" />}
+                </View>
+                <Text style={styles.aiText}>
+                  {insightLoading ? 'Analysing your scan history…' : aiInsight}
+                </Text>
+              </Card>
+            )}
             {filteredGroups.map(g => (
               <TouchableOpacity
                 key={g.id}
@@ -273,6 +306,11 @@ const styles = StyleSheet.create({
   },
   groupActionText: { fontSize: fontSize.sm, color: colors.pur, fontWeight: fontWeight.medium },
 
+  aiCard: { gap: spacing.sm },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  aiIcon: { width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  aiTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.t1, flex: 1 },
+  aiText: { fontSize: fontSize.md, color: colors.t2, lineHeight: 22 },
   familySection: { gap: spacing.sm, marginTop: spacing.md },
   familyCard: { gap: spacing.md },
   familyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.t1 },

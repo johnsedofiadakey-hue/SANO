@@ -46,6 +46,8 @@ export default function MalariaScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [assessed, setAssessed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
 
   const toggleSymptom = (id: string) => {
     setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
@@ -58,6 +60,14 @@ export default function MalariaScreen() {
       return;
     }
     setAssessed(true);
+    setInsightLoading(true);
+    import('../../src/services/aiChat').then(({ sendChatMessage }) =>
+      sendChatMessage(
+        `I've assessed my malaria risk based on symptoms: ${selected.join(', ')}. Risk level: ${result.level} (${result.score}% indicator). I'm in Ghana. Give me a warm 2-sentence personalised next-step message — what should I do right now?`,
+        [],
+        { region: 'Ghana' }
+      )
+    ).then(setAiInsight).catch(() => {}).finally(() => setInsightLoading(false));
 
     if (user) {
       setSaving(true);
@@ -146,6 +156,15 @@ export default function MalariaScreen() {
               <Text style={[styles.scoreText, { color: result.color }]}>{result.score}% risk indicator</Text>
 
               <Text style={styles.adviceText}>{result.advice}</Text>
+
+              {(insightLoading || aiInsight) && (
+                <Card variant="tint" style={{ gap: 6 }}>
+                  <Text style={{ fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.pur }}>🤖 SANO AI</Text>
+                  <Text style={{ fontSize: fontSize.md, color: colors.t2, lineHeight: 22 }}>
+                    {insightLoading ? 'Analysing your symptoms…' : aiInsight}
+                  </Text>
+                </Card>
+              )}
 
               <Card variant="tint" style={styles.testLocations}>
                 <Text style={styles.testTitle}>📍 Get tested in Accra</Text>

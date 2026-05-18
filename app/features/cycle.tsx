@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { Card } from '../../src/components/ui/Card';
 import { Label } from '../../src/components/ui/Label';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useCycleStore, getSkinForecastForPhase } from '../../src/store/cycleStore';
+import { useProfileStore } from '../../src/store/profileStore';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
 import type { CyclePhase, Symptom } from '../../src/types/health';
 
@@ -92,10 +93,25 @@ export default function CycleScreen() {
     togglePeriodDay,
   } = useCycleStore();
   const { logEvent } = useDataCollection();
+  const { skinConcerns } = useProfileStore();
+  const [phaseInsight, setPhaseInsight] = useState<string | null>(null);
+  const insightFetched = useRef(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     logEvent('feature_opened', { feature: 'cycle' });
   }, [logEvent]);
+
+  useEffect(() => {
+    if (!currentCycleDay || insightFetched.current) return;
+    insightFetched.current = true;
+    import('../../src/services/aiChat').then(({ sendChatMessage }) =>
+      sendChatMessage(
+        `I'm on Day ${currentCycleDay} of my menstrual cycle in the ${currentPhase ?? 'follicular'} phase. My skin concerns are: ${skinConcerns?.join(', ') || 'general skincare'}. Give me one warm, specific sentence about how this phase is affecting my skin today and what to do about it.`,
+        [],
+        { cycleDay: currentCycleDay, cyclePhase: currentPhase ?? 'follicular', skinConcerns }
+      )
+    ).then(setPhaseInsight).catch(() => {});
+  }, [currentCycleDay, currentPhase]);
 
   const calDates = buildCalendarDates();
   const today = new Date();
@@ -136,10 +152,10 @@ export default function CycleScreen() {
           <LinearGradient colors={[...GRADIENT]} style={styles.phaseBanner}>
             <Text style={styles.phaseBannerLabel}>Day {currentCycleDay} · {phase.charAt(0).toUpperCase() + phase.slice(1)} Phase</Text>
             <Text style={styles.phaseBannerSub}>
-              {phase === 'period' ? 'Skin is most sensitive — be gentle' :
+              {phaseInsight ?? (phase === 'period' ? 'Skin is most sensitive — be gentle' :
                phase === 'follicular' ? 'Great time for active ingredients' :
                phase === 'ovulation' ? 'Skin looks its best this week' :
-               'Breakout risk rising — watch oil levels'}
+               'Breakout risk rising — watch oil levels')}
             </Text>
           </LinearGradient>
         )}
