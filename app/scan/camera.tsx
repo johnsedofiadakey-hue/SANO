@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Ellipse, Rect, Path } from 'react-native-svg';
-import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../src/theme';
+import { colors, overlay, GRADIENT, GRADIENT_DISABLED, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { BODY_ZONES } from '../../src/components/ui/BodyMannequin';
 import type { BodyZone } from '../../src/components/ui/BodyMannequin';
 
@@ -34,7 +34,7 @@ function GuideOverlay({ area }: { area: BodyZone }) {
           cy={height / 2 - 40}
           rx={110}
           ry={145}
-          stroke="#7C3AED"
+          stroke={colors.purGlow}
           strokeWidth={2.5}
           strokeDasharray="8,6"
           fill="none"
@@ -150,7 +150,7 @@ export default function CameraScreen() {
           style={styles.captureOuter}
         >
           <LinearGradient
-            colors={isCapturing ? ['#C4B8D8', '#C4B8D8'] : [...GRADIENT]}
+            colors={isCapturing ? [...GRADIENT_DISABLED] : [...GRADIENT]}
             style={styles.captureBtn}
           >
             {isCapturing ? (
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: overlay.black40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: overlay.black40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    color: 'rgba(255,255,255,0.8)',
+    color: overlay.white80,
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
   },

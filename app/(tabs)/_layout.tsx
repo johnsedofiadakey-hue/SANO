@@ -12,7 +12,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, GRADIENT, shadows } from '../../src/theme';
+import { colors, overlay, GRADIENT, shadows } from '../../src/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -259,12 +259,12 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+    borderColor: overlay.white90,
     ...shadows.tab,
-    backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.97)' : 'transparent',
+    backgroundColor: Platform.OS === 'android' ? overlay.white97 : 'transparent',
   },
   androidBg: {
-    backgroundColor: 'rgba(255,255,255,0.97)',
+    backgroundColor: overlay.white97,
   },
   tabBarInner: {
     flex: 1,

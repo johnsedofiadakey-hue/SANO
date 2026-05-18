@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot from 'react-native-view-shot';
-import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../theme';
+import { colors, overlay, GRADIENT, GRADIENT_WHATSAPP, spacing, fontSize, fontWeight, radius } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 
 interface ShareableResultCardProps {
@@ -42,7 +42,7 @@ function MiniRing({ value, max = 10 }: { value: number; max?: number }) {
             height: size,
             borderRadius: size / 2,
             borderWidth: stroke,
-            borderColor: 'rgba(255,255,255,0.2)',
+            borderColor: overlay.white20,
           },
         ]}
       />
@@ -147,7 +147,7 @@ export function ShareableResultCard({
             </View>
             <View style={styles.sevTrack}>
               <View
-                style={[styles.sevFill, { width: `${(severity / 10) * 100}%`, backgroundColor: 'rgba(255,255,255,0.9)' }]}
+                style={[styles.sevFill, { width: `${(severity / 10) * 100}%`, backgroundColor: overlay.white90 }]}
               />
             </View>
 
@@ -171,7 +171,7 @@ export function ShareableResultCard({
       {/* Visible trigger button */}
       <TouchableOpacity onPress={handleShare} activeOpacity={0.85} style={styles.shareBtn}>
         <LinearGradient
-          colors={['#25D366', '#128C7E']}
+          colors={[...GRADIENT_WHATSAPP]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.shareBtnGrad}
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   deco: {
     position: 'absolute',
     borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: overlay.white08,
   },
   decoTR: { width: 160, height: 160, top: -50, right: -50 },
   decoBL: { width: 100, height: 100, bottom: -30, left: -30 },
@@ -211,28 +211,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoText: {
-    fontSize: 22,
+    fontSize: fontSize.xl2,
     fontWeight: fontWeight.extrabold,
     color: colors.white,
     letterSpacing: 4,
   },
   reportLabel: {
     fontSize: fontSize.xs,
-    color: 'rgba(255,255,255,0.6)',
+    color: overlay.white60,
     fontWeight: fontWeight.medium,
     letterSpacing: 1,
   },
 
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: overlay.white15,
   },
 
   glowSection: { gap: spacing.md },
   glowLabel: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.bold,
-    color: 'rgba(255,255,255,0.6)',
+    color: overlay.white60,
     letterSpacing: 1.5,
   },
   glowRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
@@ -241,60 +241,60 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 4,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: overlay.white35,
     alignItems: 'center',
     justifyContent: 'center',
   },
   glowNum: { fontSize: fontSize.xl2, fontWeight: fontWeight.extrabold, color: colors.white },
-  glowSub: { fontSize: fontSize.xs2, color: 'rgba(255,255,255,0.6)' },
+  glowSub: { fontSize: fontSize.xs2, color: overlay.white60 },
   glowRight: { gap: 4 },
-  glowTrend: { fontSize: fontSize.sm, color: '#4ADE80', fontWeight: fontWeight.bold },
+  glowTrend: { fontSize: fontSize.sm, color: colors.grnVibrant, fontWeight: fontWeight.bold },
   glowName: { fontSize: fontSize.lg, fontWeight: fontWeight.extrabold, color: colors.white },
-  glowFitz: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.65)' },
+  glowFitz: { fontSize: fontSize.sm, color: overlay.white65 },
 
   findingSection: { gap: spacing.sm },
   findingLabel: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.bold,
-    color: 'rgba(255,255,255,0.6)',
+    color: overlay.white60,
     letterSpacing: 1.5,
   },
   findingName: { fontSize: fontSize.xl2, fontWeight: fontWeight.extrabold, color: colors.white },
-  findingArea: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.65)', textTransform: 'capitalize' },
+  findingArea: { fontSize: fontSize.sm, color: overlay.white65, textTransform: 'capitalize' },
   sevRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
-  sevLabel: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.7)' },
+  sevLabel: { fontSize: fontSize.sm, color: overlay.white70 },
   sevValue: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.white },
   sevTrack: {
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: overlay.white15,
     borderRadius: 4,
     overflow: 'hidden',
   },
   sevFill: { height: '100%', borderRadius: 4 },
   improvingChip: {
-    backgroundColor: 'rgba(74,222,128,0.2)',
+    backgroundColor: overlay.grn20,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: 'rgba(74,222,128,0.4)',
+    borderColor: overlay.grn40,
     marginTop: spacing.xs,
   },
-  improvingText: { fontSize: fontSize.xs, color: '#4ADE80', fontWeight: fontWeight.bold },
+  improvingText: { fontSize: fontSize.xs, color: colors.grnVibrant, fontWeight: fontWeight.bold },
 
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  footerLeft: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.6)' },
-  footerRight: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' },
+  footerLeft: { fontSize: fontSize.xs, color: overlay.white60 },
+  footerRight: { fontSize: fontSize.xs, color: overlay.white50, fontStyle: 'italic' },
 
   ringBg: { position: 'absolute' },
   ringCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   ringValue: { fontSize: fontSize.md, fontWeight: fontWeight.extrabold, color: colors.white },
-  ringMax: { fontSize: fontSize.xs2, color: 'rgba(255,255,255,0.6)' },
+  ringMax: { fontSize: fontSize.xs2, color: overlay.white60 },
 
   shareBtn: { borderRadius: radius.lg, overflow: 'hidden', width: '100%' },
   shareBtnGrad: {

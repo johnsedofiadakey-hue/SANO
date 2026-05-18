@@ -43,13 +43,39 @@ export const colors = {
 
   // ── Camera ────────────────────────────────────────────────────────
   cam:      '#080413',
+
+  // ── Extended ──────────────────────────────────────────────────────
+  grnVibrant: '#4ADE80',   // "Improving" status in scan results
+  bdrMid:     '#D4C6FF',   // Mannequin zone stroke (idle)
+  purStr:     '#5B21B6',   // Mannequin zone stroke (active)
+} as const;
+
+// ── Overlay (rgba transparency scale) ────────────────────────────
+export const overlay = {
+  white08: 'rgba(255,255,255,0.08)',
+  white15: 'rgba(255,255,255,0.15)',
+  white20: 'rgba(255,255,255,0.20)',
+  white35: 'rgba(255,255,255,0.35)',
+  white50: 'rgba(255,255,255,0.50)',
+  white60: 'rgba(255,255,255,0.60)',
+  white65: 'rgba(255,255,255,0.65)',
+  white70: 'rgba(255,255,255,0.70)',
+  white80: 'rgba(255,255,255,0.80)',
+  white90: 'rgba(255,255,255,0.90)',
+  white97: 'rgba(255,255,255,0.97)',
+  black40: 'rgba(0,0,0,0.40)',
+  grn20:   'rgba(74,222,128,0.20)',
+  grn40:   'rgba(74,222,128,0.40)',
 } as const;
 
 // ── Gradients ─────────────────────────────────────────────────────
-export const GRADIENT       = ['#6D28D9', '#E8398A'] as const;
-export const GRADIENT_WARM  = ['#7C3AED', '#C026D3'] as const;
-export const GRADIENT_SOFT  = ['#EDE9FE', '#FDE8F5'] as const;
-export const GRADIENT_DARK  = ['#2E1065', '#831843'] as const;
+export const GRADIENT          = ['#6D28D9', '#E8398A'] as const;
+export const GRADIENT_WARM     = ['#7C3AED', '#C026D3'] as const;
+export const GRADIENT_SOFT     = ['#EDE9FE', '#FDE8F5'] as const;
+export const GRADIENT_DARK     = ['#2E1065', '#831843'] as const;
+export const GRADIENT_PINK     = ['#EC4899', '#BE185D'] as const;
+export const GRADIENT_DISABLED = ['#C4B8D8', '#C4B8D8'] as const;
+export const GRADIENT_WHATSAPP = ['#25D366', '#128C7E'] as const;
 
 // ── Shadow presets ────────────────────────────────────────────────
 export const shadows = {

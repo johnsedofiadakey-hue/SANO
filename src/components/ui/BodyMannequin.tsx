@@ -13,7 +13,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { colors, spacing, fontSize, fontWeight } from '../../theme';
+import { colors, spacing, radius, fontSize, fontWeight } from '../../theme';
 
 export type BodyZone =
   | 'face'
@@ -44,23 +44,23 @@ interface BodyMannequinProps {
   onSelect: (zone: BodyZone) => void;
 }
 
-const FILL_IDLE = '#EDE8FF';
-const FILL_ACTIVE = '#7C3AED';
-const STROKE_IDLE = '#D4C6FF';
+const FILL_IDLE = colors.bg3;
+const FILL_ACTIVE = colors.purGlow;
+const STROKE_IDLE = colors.bdrMid;
 
 export function BodyMannequin({ selected, onSelect }: BodyMannequinProps) {
   const zoneColor = (zone: BodyZone) =>
     selected === zone ? FILL_ACTIVE : FILL_IDLE;
   const zoneStroke = (zone: BodyZone) =>
-    selected === zone ? '#5B21B6' : STROKE_IDLE;
+    selected === zone ? colors.purStr : STROKE_IDLE;
 
   return (
     <View style={styles.container}>
       <Svg viewBox="0 0 200 420" width={180} height={380}>
         <Defs>
           <LinearGradient id="glowGrad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#7C3AED" stopOpacity="0.4" />
-            <Stop offset="1" stopColor="#EC4899" stopOpacity="0.4" />
+            <Stop offset="0" stopColor={colors.purGlow} stopOpacity="0.4" />
+            <Stop offset="1" stopColor={colors.pink} stopOpacity="0.4" />
           </LinearGradient>
         </Defs>
 
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   label: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: 100,
+    borderRadius: radius.full,
     borderWidth: 1.5,
     borderColor: colors.bdr,
     backgroundColor: colors.bg2,

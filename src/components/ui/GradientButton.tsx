@@ -13,7 +13,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { colors, GRADIENT, spacing, radius, fontSize, fontWeight } from '../../theme';
+import { colors, GRADIENT, GRADIENT_PINK, GRADIENT_DISABLED, spacing, radius, fontSize, fontWeight } from '../../theme';
 
 type Variant = 'primary' | 'outline' | 'ghost' | 'pink';
 
@@ -66,7 +66,7 @@ export function GradientButton({
           style={[styles.base, style]}
         >
           <LinearGradient
-            colors={disabled ? ['#C4B8D8', '#C4B8D8'] : [...GRADIENT]}
+            colors={disabled ? [...GRADIENT_DISABLED] : [...GRADIENT]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradient}
@@ -97,7 +97,7 @@ export function GradientButton({
           style={[styles.base, style]}
         >
           <LinearGradient
-            colors={['#EC4899', '#BE185D']}
+            colors={[...GRADIENT_PINK]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradient}
