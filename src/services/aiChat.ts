@@ -16,7 +16,8 @@ const getKeywordResponse = (message: string, userContext: any): string => {
     return `During your luteal phase (Days 14–28), progesterone rises and increases sebum production — more oil leads to congestion, then inflammation, then post-inflammatory hyperpigmentation. You're on Day ${userContext?.cycleDay ?? 22} right now — right at the peak. It calms significantly after your period ends. I'll alert you 2 days before it's likely to happen next cycle. 🌙`;
   }
   if (m.match(/niacinamide|vitamin c|serum|product|ingredient/)) {
-    return `For your skin profile — Fitzpatrick ${userContext?.fitzpatrick ?? 'V'}, ${userContext?.primaryConcern ?? 'hyperpigmentation'} — I recommend CeraVe Niacinamide Serum, available at Ernest Chemists, Osu for about GHS 180. It combines ceramides for barrier repair with 5% niacinamide for brightening. Want me to add it to your routine? 💜`;
+    const concern = userContext?.skinConcerns?.[0] ?? userContext?.latestScan?.condition ?? 'hyperpigmentation';
+    return `For your skin profile — Fitzpatrick ${userContext?.fitzpatrick ?? 'V'}, ${concern} — I recommend CeraVe Niacinamide Serum, available at Ernest Chemists, Osu for about GHS 180. It combines ceramides for barrier repair with 5% niacinamide for brightening. Want me to add it to your routine? 💜`;
   }
   if (m.match(/spf|sunscreen|sun protection/)) {
     return `SPF is the single most important step in your routine — more than any serum. In Accra the UV index regularly hits 9–11 (extreme). Without it, your hyperpigmentation keeps returning no matter how good everything else is. Use SPF 50+ every morning as your final step, even on cloudy days. ☀️`;
@@ -37,7 +38,9 @@ const getKeywordResponse = (message: string, userContext: any): string => {
     return `For acne on African skin, the most important thing is preventing the post-inflammatory hyperpigmentation (PIH) after — so never pop, always treat gently. Salicylic acid 2% cleanser (BHA) clears pores, and Niacinamide 10% at night prevents the dark marks. Both available at Ernest Chemists, Osu.`;
   }
 
-  return `Based on your scan history, your ${userContext?.primaryConcern ?? 'skin'} is responding well — your Glow Score increased ${userContext?.glowScoreChange ?? 6} points this week. Keep consistent with your morning routine and remember SPF every single day makes the real difference. What would you like to know? 💜`;
+  const concern = userContext?.skinConcerns?.[0] ?? userContext?.latestScan?.condition ?? 'skin';
+  const score = userContext?.glowScore ? ` Your current Glow Score is ${userContext.glowScore}/100.` : '';
+  return `Based on your scan history, your ${concern} is on the right track.${score} Keep consistent with your morning routine and remember SPF every single day makes the biggest difference. What would you like to know? 💜`;
 };
 
 const getFirebaseToken = async (): Promise<string> => {

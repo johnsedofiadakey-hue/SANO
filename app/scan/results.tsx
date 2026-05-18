@@ -28,6 +28,7 @@ import type { BodyZone } from '../../src/components/ui/BodyMannequin';
 const WHAT_HELPS: Record<string, string[]> = {
   hyperpigmentation: ['Vitamin C serum', 'Niacinamide 10%', 'Kojic acid', 'SPF 50+ daily'],
   acne: ['Salicylic acid cleanser', 'Benzoyl peroxide', 'Retinol (PM)', 'Tea tree oil'],
+  eczema: ['Ceramide moisturiser', 'Colloidal oatmeal', 'Fragrance-free products', 'Cool compresses'],
   razor_bumps: ['Single-blade razor', 'Shave with grain', 'Glycolic acid toner', 'Aloe vera'],
   default: ['Consistent routine', 'Hydration', 'SPF daily', 'Gentle cleanser'],
 };
@@ -35,6 +36,7 @@ const WHAT_HELPS: Record<string, string[]> = {
 const WHAT_AVOID: Record<string, string[]> = {
   hyperpigmentation: ['Sun without SPF', 'Harsh scrubs', 'Picking at skin', 'Alcohol toners'],
   acne: ['Heavy oils', 'Dairy overload', 'Over-washing', 'Popping pimples'],
+  eczema: ['Fragranced products', 'Hot showers', 'Wool fabric', 'Harsh soaps'],
   razor_bumps: ['Multi-blade razors', 'Shaving dry', 'Tight clothing', 'Fragrance products'],
   default: ['Skipping SPF', 'Hot water', 'Fragrance overload'],
 };
@@ -47,6 +49,14 @@ const ACCRA_PRODUCTS: Record<string, { name: string; store: string; price: strin
   acne: [
     { name: 'CeraVe SA Cleanser', store: 'Ernest Chemists', price: 'GHS 120' },
     { name: 'Differin Gel (0.1%)', store: 'Vivo Pharmacy', price: 'GHS 90' },
+  ],
+  eczema: [
+    { name: 'CeraVe Moisturising Cream', store: 'Ernest Chemists', price: 'GHS 95' },
+    { name: 'Dove Sensitive Body Wash', store: 'Melcom', price: 'GHS 38' },
+  ],
+  razor_bumps: [
+    { name: 'Tend Skin Solution', store: 'Ernest Chemists', price: 'GHS 110' },
+    { name: 'The Ordinary Glycolic Acid 7%', store: 'Entrance Pharmacy', price: 'GHS 72' },
   ],
   default: [
     { name: 'Cetaphil Gentle Cleanser', store: 'Ernest Chemists', price: 'GHS 75' },
@@ -89,7 +99,7 @@ export default function ResultsScreen() {
     );
   }
 
-  const conditionKey = topCondition.name.toLowerCase().replace(' ', '_') as keyof typeof WHAT_HELPS;
+  const conditionKey = topCondition.name.toLowerCase().replace(/\s+/g, '_').replace('healthy_clear', 'default') as keyof typeof WHAT_HELPS;
   const helps = WHAT_HELPS[conditionKey] ?? WHAT_HELPS.default;
   const avoids = WHAT_AVOID[conditionKey] ?? WHAT_AVOID.default;
   const products = ACCRA_PRODUCTS[conditionKey] ?? ACCRA_PRODUCTS.default;

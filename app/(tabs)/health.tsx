@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
+  Alert,
   StyleSheet,
   Dimensions,
 } from 'react-native';
@@ -286,7 +287,13 @@ export default function HealthScreen() {
               <React.Fragment key={t.name}>
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={'action' in t && t.action === 'bpm' ? () => setBpmModalOpen(true) : undefined}
+                  onPress={
+                    'action' in t && t.action === 'bpm'
+                      ? () => setBpmModalOpen(true)
+                      : t.pro
+                        ? () => Alert.alert('Coming soon', `${t.name} will be available in the next SANO update.`)
+                        : undefined
+                  }
                   style={styles.testRow}
                 >
                   <View style={[styles.testIconWrap, { backgroundColor: t.tint }]}>
