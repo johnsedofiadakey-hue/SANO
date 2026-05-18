@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   initializeAuth,
+  getAuth,
   getReactNativePersistence,
   GoogleAuthProvider,
   FacebookAuthProvider,
@@ -35,10 +36,13 @@ if (FIREBASE_READY) {
 
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   
-  // Use initializeAuth with AsyncStorage for proper React Native persistence
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch {
+    auth = getAuth(app);
+  }
   
   db      = getFirestore(app);
   storage = getStorage(app);

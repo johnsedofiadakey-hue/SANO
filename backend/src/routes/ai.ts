@@ -64,8 +64,10 @@ router.post('/chat', async (req, res) => {
       res.json({ response: 'I received a non-text response from the AI.' });
     }
   } catch (err: any) {
+    console.error('[AI /chat] Anthropic error:', err?.status, err?.message, err?.error);
     res.status(500).json({
       error: 'AI service error',
+      detail: err?.message ?? String(err),
       response: 'I had trouble responding. Please try again.',
     });
   }

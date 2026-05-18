@@ -44,8 +44,14 @@ const getKeywordResponse = (message: string, userContext: any): string => {
 };
 
 const getFirebaseToken = async (): Promise<string> => {
-  if (!FIREBASE_READY || !auth?.currentUser) return 'demo-token';
-  return auth.currentUser.getIdToken();
+  if (!FIREBASE_READY || !auth) return 'demo-token';
+  // Wait up to 3s for auth state to restore from AsyncStorage on cold launch
+  const user = auth.currentUser ?? await new Promise<any>(resolve => {
+    const unsub = auth.onAuthStateChanged((u: any) => { unsub(); resolve(u); });
+    setTimeout(() => resolve(null), 3000);
+  });
+  if (!user) return 'demo-token';
+  return user.getIdToken();
 };
 
 export const sendChatMessage = async (
@@ -55,13 +61,13 @@ export const sendChatMessage = async (
 ): Promise<string> => {
 
   if (!ANTHROPIC_READY) {
-    await delay(1200 + Math.random() * 600);
-    return getKeywordResponse(message, userContext);
+    return `[DEBUG] ANTHROPIC_READY=false. API_URL="${process.env.EXPO_PUBLIC_API_URL}" DEMO_MODE="${process.env.EXPO_PUBLIC_DEMO_MODE}"`;
   }
 
   try {
     const token = await getFirebaseToken();
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/ai/chat`, {
+    const url = `${process.env.EXPO_PUBLIC_API_URL}/ai/chat`;
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,11 +76,14 @@ export const sendChatMessage = async (
       body: JSON.stringify({ message, history: conversationHistory, userContext }),
     });
 
-    if (!response.ok) throw new Error(`AI service error: ${response.status}`);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as any;
+      return `[DEBUG] API error ${response.status}: ${body.detail ?? body.error ?? JSON.stringify(body).slice(0, 200)}`;
+    }
     const data = await response.json();
     return data.response ?? getKeywordResponse(message, userContext);
-  } catch {
-    return getKeywordResponse(message, userContext);
+  } catch (err: any) {
+    return `[DEBUG] ${err?.message ?? String(err)}`;
   }
 };
 
