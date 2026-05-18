@@ -69,7 +69,7 @@ function PulsingHeart({ active }: { active: boolean }) {
   return <Animated.Text style={[{ fontSize: 56 }, style]}>❤️</Animated.Text>;
 }
 
-function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onClose: () => void; onResult: (res: { bpm: number; spo2: number }) => void }) {
+function HeartRateModal({ visible, onClose, onResult, insight, insightLoading }: { visible: boolean; onClose: () => void; onResult: (res: { bpm: number; spo2: number }) => void; insight: string | null; insightLoading: boolean }) {
   const { isMeasuring, progress, result, error, startMeasurement, stop } = useHeartRate();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -165,6 +165,13 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
                   <Text style={modal.resultLabel}>SpO₂</Text>
                 </View>
               </View>
+              {(insightLoading || insight) && (
+                <View style={modal.insightBox}>
+                  <Text style={modal.insightText}>
+                    {insightLoading ? 'SANO AI is analysing your reading…' : insight}
+                  </Text>
+                </View>
+              )}
               <Text style={modal.disclaimer}>
                 For reference only. Not a medical device. Consult a doctor for clinical readings.
               </Text>
@@ -201,6 +208,8 @@ export default function HealthScreen() {
   const router = useRouter();
   const [bpmModalOpen, setBpmModalOpen] = useState(false);
   const [measurementResult, setMeasurementResult] = useState<{ bpm: number; spo2: number } | null>(null);
+  const [bpmInsight, setBpmInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
 
   const saveVitals = async (res: { bpm: number; spo2: number }) => {
     setMeasurementResult(res);
@@ -214,6 +223,21 @@ export default function HealthScreen() {
       } catch (e) {
         console.error('Failed to save vitals to cloud:', e);
       }
+    }
+    // Ask Claude to interpret the reading
+    setInsightLoading(true);
+    try {
+      const { sendChatMessage } = await import('../../src/services/aiChat');
+      const insight = await sendChatMessage(
+        `My heart rate just measured ${res.bpm} BPM and SpO₂ is ${res.spo2}%. Give me a brief 2-sentence interpretation — is this healthy, and any skin or wellness tip?`,
+        [],
+        { heartRate: res.bpm, spo2: res.spo2 }
+      );
+      setBpmInsight(insight);
+    } catch {
+      // non-critical, skip silently
+    } finally {
+      setInsightLoading(false);
     }
   };
   
@@ -342,7 +366,7 @@ export default function HealthScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      <HeartRateModal visible={bpmModalOpen} onClose={() => setBpmModalOpen(false)} onResult={saveVitals} />
+      <HeartRateModal visible={bpmModalOpen} onClose={() => { setBpmModalOpen(false); setBpmInsight(null); }} onResult={saveVitals} insight={bpmInsight} insightLoading={insightLoading} />
       
       {/* Sleep Modal */}
       <Modal visible={sleepModalOpen} animationType="slide" presentationStyle="pageSheet">
@@ -552,6 +576,8 @@ const modal = StyleSheet.create({
   resultLabel: { fontSize: fontSize.sm, color: colors.t3 },
   resultDivider: { width: 1, height: 40, backgroundColor: colors.bdr },
   disclaimer: { fontSize: fontSize.xs, color: colors.t4, lineHeight: 18 },
+  insightBox: { marginTop: spacing.sm, backgroundColor: colors.bg2, borderRadius: radius.md, padding: spacing.sm },
+  insightText: { fontSize: fontSize.sm, color: colors.t2, lineHeight: 20 },
 
   tipsCard: { gap: spacing.md },
   tipRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },

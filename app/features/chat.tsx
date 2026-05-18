@@ -25,6 +25,7 @@ import { colors, GRADIENT, spacing, fontSize, fontWeight, radius } from '../../s
 import { useScanStore } from '../../src/store/scanStore';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useCycleStore } from '../../src/store/cycleStore';
+import { useHealthData } from '../../src/hooks/useHealthData';
 import { useDataCollection } from '../../src/hooks/useDataCollection';
 
 interface Message {
@@ -130,6 +131,7 @@ export default function ChatScreen() {
   const { currentResult, scans } = useScanStore();
   const { fitzpatrick, skinConcerns, glowScore, name: userName } = useProfileStore();
   const { currentCycleDay, currentPhase } = useCycleStore();
+  const { latestHR } = useHealthData();
   const { logEvent } = useDataCollection();
 
   const topCondition = currentResult?.conditions?.[0]?.name;
@@ -171,6 +173,7 @@ export default function ChatScreen() {
         glowScore,
         cycleDay: currentCycleDay,
         cyclePhase: currentPhase,
+        heartRate: latestHR ?? null,
         latestScan: currentResult
           ? {
               condition: currentResult.conditions[0]?.name ?? null,
