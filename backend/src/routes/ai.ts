@@ -9,7 +9,7 @@ const anthropic = ANTHROPIC_READY ? new Anthropic({ apiKey: process.env.ANTHROPI
 const buildSystemPrompt = (userContext: any) => `
 You are SANO AI, a caring skin health assistant built for Ghanaian and African users.
 
-User: ${userContext?.name ?? 'Abena'}, Fitzpatrick ${userContext?.fitzpatrick ?? 'V'}, concern: ${userContext?.primaryConcern ?? 'hyperpigmentation'}, Glow Score: ${userContext?.glowScore ?? 74}/100, Cycle Day: ${userContext?.cycleDay ?? 22}, Region: ${userContext?.region ?? 'Greater Accra'}.
+User: ${userContext?.userName ?? userContext?.name ?? 'the user'}, Fitzpatrick ${userContext?.fitzpatrick ?? 'unknown'}, concern: ${userContext?.skinConcerns?.[0] ?? userContext?.primaryConcern ?? 'general skincare'}, Glow Score: ${userContext?.glowScore ?? 'not yet measured'}/100, Cycle Day: ${userContext?.cycleDay ?? 'not tracked'}, Region: ${userContext?.region ?? 'Ghana'}.
 
 Rules:
 - Speak warmly and personally. Reference their scan data.
@@ -24,6 +24,16 @@ router.post('/chat', async (req, res) => {
   const { message, history = [], userContext = {}, context = {} } = req.body;
   const finalContext = { ...userContext, ...context };
 
+  if (typeof message !== 'string' || message.trim().length === 0) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+  if (message.length > 2000) {
+    return res.status(400).json({ error: 'message too long (max 2000 characters)' });
+  }
+  if (!Array.isArray(history) || history.length > 30) {
+    return res.status(400).json({ error: 'history must be an array with at most 30 messages' });
+  }
+
   if (!ANTHROPIC_READY || !anthropic) {
     return res.json({
       response: 'AI chat not yet configured. Add ANTHROPIC_API_KEY to activate Claude.',
@@ -32,13 +42,16 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
-    const messages = [
-      ...history.map((h: any) => ({ role: h.me ? 'user' : 'assistant', content: h.txt })),
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      ...history.map((h: any) => ({
+        role: (h.me ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: String(h.txt ?? ''),
+      })),
       { role: 'user', content: message },
     ];
 
     const result = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-sonnet-4-6',
       max_tokens: 300,
       system: buildSystemPrompt(finalContext),
       messages,
@@ -91,13 +104,20 @@ router.post('/heartrate', async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error: any) {
-    console.error('Error in /ai/heartrate:', error);
-    res.status(500).json({ error: 'Internal server error', message: error.message });
+    console.error('Vitals AI service failed or timed out:', error.message);
+    res.status(503).json({
+      error: 'Heart rate service unavailable',
+      message: 'Analysis failed. Please try again — hold your finger still over the camera lens.',
+    });
   }
 });
 
 router.post('/routine', async (req, res) => {
   const { condition, userContext = {} } = req.body;
+
+  if (condition !== undefined && (typeof condition !== 'string' || condition.length > 200)) {
+    return res.status(400).json({ error: 'condition must be a string under 200 characters' });
+  }
 
   if (!ANTHROPIC_READY || !anthropic) {
     return res.json({
@@ -112,7 +132,7 @@ router.post('/routine', async (req, res) => {
   try {
     const prompt = `
 Generate a personalized skincare routine for a user with the following profile:
-Name: ${userContext.name || 'Abena'}
+Name: the user
 Fitzpatrick Tone: ${userContext.fitzpatrick || 'V'}
 Skin Type: ${userContext.skinType || 'combination'}
 Primary Concern: ${condition || 'healthy skin'}
@@ -141,7 +161,7 @@ Return ONLY the JSON array. No markdown formatting, no explanation.
 `.trim();
 
     const result = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       system: 'You are a skincare expert. Return ONLY valid JSON array.',
       messages: [{ role: 'user', content: prompt }],
@@ -163,6 +183,14 @@ Return ONLY the JSON array. No markdown formatting, no explanation.
 
 router.post('/foundation', async (req, res) => {
   const { fitzpatrick, undertone } = req.body;
+
+  if (fitzpatrick !== undefined && (typeof fitzpatrick !== 'number' || fitzpatrick < 1 || fitzpatrick > 6)) {
+    return res.status(400).json({ error: 'fitzpatrick must be a number between 1 and 6' });
+  }
+  const VALID_UNDERTONES = ['warm', 'cool', 'neutral', 'olive', undefined, null, ''];
+  if (!VALID_UNDERTONES.includes(undertone)) {
+    return res.status(400).json({ error: 'Invalid undertone' });
+  }
 
   if (!ANTHROPIC_READY || !anthropic) {
     return res.json({
@@ -205,7 +233,7 @@ Return ONLY the JSON array. No markdown formatting, no explanation.
 `.trim();
 
     const result = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       system: 'You are a makeup expert. Return ONLY valid JSON array.',
       messages: [{ role: 'user', content: prompt }],
@@ -227,6 +255,13 @@ Return ONLY the JSON array. No markdown formatting, no explanation.
 
 router.post('/product', async (req, res) => {
   const { name } = req.body;
+
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    return res.status(400).json({ error: 'product name is required' });
+  }
+  if (name.length > 200) {
+    return res.status(400).json({ error: 'product name too long (max 200 characters)' });
+  }
 
   if (!ANTHROPIC_READY || !anthropic) {
     return res.json({
@@ -281,7 +316,7 @@ Return ONLY the JSON object. No markdown formatting, no explanation.
 `.trim();
 
     const result = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       system: 'You are a cosmetic chemist. Return ONLY valid JSON object.',
       messages: [{ role: 'user', content: prompt }],

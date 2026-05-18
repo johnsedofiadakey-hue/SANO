@@ -163,6 +163,21 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify({
         logs, currentCycleDay, currentPhase, periodDays, periodStartDate, nextPeriodDate,
       }));
+
+      // Cloud Sync
+      const { FIREBASE_READY, auth } = await import('../config/firebase');
+      const { firestoreService } = await import('../services/firestore');
+      const uid = auth?.currentUser?.uid;
+      
+      if (FIREBASE_READY && uid) {
+        // Sync the most recent state to Firestore
+        await firestoreService.saveCycleLog(uid, {
+          cycleDay: currentCycleDay ?? 1,
+          periodStart: periodStartDate ?? undefined,
+          symptoms: get().symptoms,
+          skinCondition: 1, // mapping for history
+        });
+      }
     } catch (e) {
       console.error('Failed to persist cycle data:', e);
     }

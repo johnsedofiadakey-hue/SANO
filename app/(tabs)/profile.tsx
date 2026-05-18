@@ -41,7 +41,7 @@ function ChevronRight() {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { name, glowScore, fitzpatrick } = useProfileStore();
+  const { name, glowScore, fitzpatrick, subscription } = useProfileStore();
   const { signOut: logout } = useAuthStore();
   const { scans } = useScanStore();
 
@@ -108,17 +108,19 @@ export default function ProfileScreen() {
             <View style={styles.subRow}>
               <View style={{ flex: 1, gap: 4 }}>
                 <Label color={colors.pur}>Current plan</Label>
-                <Text style={styles.subPlan}>Free</Text>
-                <Text style={styles.subHint}>3 scans/month · Basic analysis</Text>
+                <Text style={styles.subPlan}>{subscription === 'free' ? 'Free' : subscription === 'plus' ? 'SANO Plus' : 'SANO Premium'}</Text>
+                <Text style={styles.subHint}>{subscription === 'free' ? '3 scans/month · Basic analysis' : 'Unlimited scans · Full analysis'}</Text>
               </View>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => router.push('/features/subscription' as any)}
-              >
-                <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.upgradeBtn}>
-                  <Text style={styles.upgradeBtnText}>Upgrade ✦</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+              {subscription === 'free' && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/features/subscription' as any)}
+                >
+                  <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.upgradeBtn}>
+                    <Text style={styles.upgradeBtnText}>Upgrade ✦</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.subFeatures}>

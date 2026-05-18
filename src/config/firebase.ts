@@ -1,11 +1,13 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
-  getAuth,
+  initializeAuth,
+  getReactNativePersistence,
   GoogleAuthProvider,
   FacebookAuthProvider,
 } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Feature flags — check once at startup
 export const FIREBASE_READY = !!(
@@ -32,13 +34,14 @@ if (FIREBASE_READY) {
   };
 
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  auth    = getAuth(app);
+  
+  // Use initializeAuth with AsyncStorage for proper React Native persistence
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+  
   db      = getFirestore(app);
   storage = getStorage(app);
-
-  enableIndexedDbPersistence(db).catch(() => {
-    // Offline persistence unavailable in this environment — silently skip
-  });
 }
 
 export { app, auth, db, storage };

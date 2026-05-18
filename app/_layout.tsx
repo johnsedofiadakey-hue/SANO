@@ -1,11 +1,44 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Component, ReactNode } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { PaystackProvider } from 'react-native-paystack-webview';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  state = { hasError: false, error: '' };
+  static getDerivedStateFromError(err: Error) {
+    return { hasError: true, error: err.message };
+  }
+  componentDidCatch(err: Error) {
+    console.error('[ErrorBoundary]', err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={eb.container}>
+          <Text style={eb.emoji}>⚠️</Text>
+          <Text style={eb.title}>Something went wrong</Text>
+          <Text style={eb.msg}>{this.state.error}</Text>
+          <TouchableOpacity style={eb.btn} onPress={() => this.setState({ hasError: false, error: '' })}>
+            <Text style={eb.btnText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+const eb = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: '#fff' },
+  emoji: { fontSize: 48, marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 },
+  msg: { fontSize: 14, color: '#6b7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  btn: { backgroundColor: '#7C3AED', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+});
 import * as SecureStore from 'expo-secure-store';
 import {
   useFonts,
@@ -26,7 +59,7 @@ import { authService } from '../src/services/auth';
 import { initAnalytics } from '../src/services/analytics';
 import { initSentry } from '../src/config/sentry';
 import { scheduleDefaultNotifications } from '../src/services/notifications';
-import { MOCK_USER } from '../src/data/mockData';
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,7 +104,7 @@ export default function RootLayout() {
     ]).catch(() => {});
 
     // Schedule local notifications
-    scheduleDefaultNotifications({ streakDays: MOCK_USER.streakDays }).catch(() => {});
+    scheduleDefaultNotifications({ streakDays: 0 }).catch(() => {});
 
     // Smart Sleep Detection
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
@@ -123,24 +156,26 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <PaystackProvider
-            publicKey={process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY ?? ''}
-            currency="GHS"
-            defaultChannels={['card', 'mobile_money']}
-          >
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="features" />
-            </Stack>
-          </PaystackProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <AppErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <PaystackProvider
+              publicKey={process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY ?? ''}
+              currency="GHS"
+              defaultChannels={['card', 'mobile_money']}
+            >
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="features" />
+              </Stack>
+            </PaystackProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </AppErrorBoundary>
   );
 }

@@ -230,8 +230,8 @@ export default function ResultsScreen() {
             improving
             weekNumber={3}
           />
-          <TouchableOpacity onPress={() => {}} style={styles.pdfLink}>
-            <Text style={styles.pdfLinkText}>Generate PDF report →</Text>
+          <TouchableOpacity onPress={() => {}} style={styles.pdfLink} disabled>
+            <Text style={[styles.pdfLinkText, { color: colors.t4 }]}>PDF report · coming soon</Text>
           </TouchableOpacity>
         </View>
 

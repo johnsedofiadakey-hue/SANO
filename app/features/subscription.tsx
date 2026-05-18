@@ -48,22 +48,23 @@ export default function SubscriptionScreen() {
   const displayAmount = plan.amount / 100;
 
   const handleSubscribe = () => {
-    setLoading(true);
-
-    if (!PAYSTACK_LIVE) {
-      // Demo: simulate 1.5s processing
-      setTimeout(() => {
-        setLoading(false);
-        setSuccess(true);
-        setTimeout(() => router.back(), 2200);
-      }, 1500);
+    if (!user?.email) {
+      router.push('/(auth)/welcome');
       return;
     }
 
+    if (!PAYSTACK_LIVE) {
+      // Paystack public key not configured — show setup message instead of fake success
+      alert('Payments not yet configured. Please contact support.');
+      return;
+    }
+
+    setLoading(true);
     popup.checkout({
-      email: user?.email ?? 'user@getsano.com',
+      email: user.email,
       amount: displayAmount,
       reference: `sano_${selected}_${Date.now()}`,
+      metadata: { plan: selected },
       onSuccess: () => {
         setLoading(false);
         setSuccess(true);
@@ -174,10 +175,6 @@ export default function SubscriptionScreen() {
             }
           </LinearGradient>
         </TouchableOpacity>
-
-        {!PAYSTACK_LIVE && (
-          <Text style={styles.demoNote}>Demo mode — no charge will occur</Text>
-        )}
 
         <Text style={styles.legal}>
           Cancel anytime. Billed monthly via MTN MoMo, Vodafone, AirtelTigo, Visa or Mastercard.{'\n'}

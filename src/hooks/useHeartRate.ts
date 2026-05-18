@@ -3,11 +3,6 @@ import * as FileSystem from 'expo-file-system';
 import { api } from '../services/api';
 
 const TOTAL_DURATION_MS = 30_000;
-const UPDATE_INTERVAL_MS = 3_000;
-
-function jitter(base: number, range: number): number {
-  return Math.round(base + (Math.random() * 2 - 1) * range);
-}
 
 export interface HeartRateResult {
   bpm: number;
@@ -15,22 +10,15 @@ export interface HeartRateResult {
 }
 
 export function useHeartRate() {
-  const [bpm, setBpm] = useState<number | null>(null);
-  const [spo2, setSpo2] = useState<number | null>(null);
   const [isMeasuring, setIsMeasuring] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<HeartRateResult | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stop = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
     if (progressRef.current) clearInterval(progressRef.current);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    intervalRef.current = null;
     progressRef.current = null;
-    timeoutRef.current = null;
     setIsMeasuring(false);
   }, []);
 
@@ -40,58 +28,42 @@ export function useHeartRate() {
     setIsMeasuring(true);
     setProgress(0);
     setResult(null);
-    setBpm(jitter(70, 4));
-    setSpo2(jitter(98, 1));
+    setError(null);
 
     const startTime = Date.now();
 
-    // Smooth progress bar (updates 10× per second)
     progressRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
       setProgress(Math.min(elapsed / TOTAL_DURATION_MS, 1));
     }, 100);
 
-    // Live BPM + SpO2 ticks
-    intervalRef.current = setInterval(() => {
-      setBpm(jitter(70, 4));
-      setSpo2(jitter(98, 1));
-    }, UPDATE_INTERVAL_MS);
-
     try {
-      // Start recording!
       const videoUri = await onRecord();
-      
-      // Read as base64!
+
       const videoBase64 = await FileSystem.readAsStringAsync(videoUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Send to backend!
-      const response = await api.post('/ai/heartrate', {
-        video_base64: videoBase64,
-      });
-
+      const response = await api.post('/ai/heartrate', { video_base64: videoBase64 });
       const data = response.data;
-      
-      if (intervalRef.current) clearInterval(intervalRef.current);
+
       if (progressRef.current) clearInterval(progressRef.current);
-      intervalRef.current = null;
       progressRef.current = null;
-      
-      setBpm(data.bpm);
-      setSpo2(data.spo2 || 98); // Fallback if not returned
+
       setProgress(1);
-      setResult({ bpm: data.bpm, spo2: data.spo2 || 98 });
+      setResult({ bpm: data.bpm, spo2: data.spo2_estimate ?? data.spo2 ?? 0 });
       setIsMeasuring(false);
-    } catch (error) {
-      console.error('Error during vitals measurement:', error);
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    } catch (err: any) {
       if (progressRef.current) clearInterval(progressRef.current);
-      intervalRef.current = null;
       progressRef.current = null;
+
+      const msg =
+        err.response?.data?.message ??
+        'Measurement failed. Keep your finger still over the lens and try again.';
+      setError(msg);
       setIsMeasuring(false);
     }
   }, [isMeasuring]);
 
-  return { bpm, spo2, isMeasuring, progress, result, startMeasurement, stop };
+  return { isMeasuring, progress, result, error, startMeasurement, stop };
 }

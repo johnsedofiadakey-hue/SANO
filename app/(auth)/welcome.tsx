@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { GradientButton } from '../../src/components/ui/GradientButton';
 import { colors, GRADIENT, spacing, fontSize, fontWeight, radius, shadows } from '../../src/theme';
 import { authService } from '../../src/services/auth';
-import { DEMO_MODE } from '../../src/config/firebase';
 
 const { width, height } = Dimensions.get('window');
 const HERO_HEIGHT = height * 0.52;
@@ -153,11 +152,20 @@ function PhoneModal({ visible, onClose, onSuccess }: { visible: boolean; onClose
   );
 }
 
-function EmailModal({ visible, onClose, onSuccess }: { visible: boolean; onClose: () => void; onSuccess: () => void }) {
+function EmailModal({ visible, onClose, onSuccess }: { 
+  visible: { open: boolean; initialRegister?: boolean }; 
+  onClose: () => void; 
+  onSuccess: () => void 
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(visible.initialRegister ?? false);
   const [loading, setLoading] = useState(false);
+
+  // Sync isRegister if modal re-opens
+  useEffect(() => {
+    setIsRegister(visible.initialRegister ?? false);
+  }, [visible.open]);
 
   const submit = async () => {
     if (!email || !password) { Alert.alert('Fill in both fields'); return; }
@@ -170,14 +178,25 @@ function EmailModal({ visible, onClose, onSuccess }: { visible: boolean; onClose
       }
       onSuccess();
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'Authentication failed');
+      if (e.code === 'auth/email-already-in-use') {
+        Alert.alert(
+          'Account Exists',
+          'This email is already registered. Would you like to sign in instead?',
+          [
+            { text: 'Sign In', onPress: () => setIsRegister(false) },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+      } else {
+        Alert.alert('Error', e.message ?? 'Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible={visible.open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.modal}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{isRegister ? 'Create account' : 'Sign in'}</Text>
@@ -219,26 +238,28 @@ function EmailModal({ visible, onClose, onSuccess }: { visible: boolean; onClose
 export default function WelcomeScreen() {
   const router = useRouter();
   const [phoneModal, setPhoneModal] = useState(false);
-  const [emailModal, setEmailModal] = useState(false);
+  const [emailModal, setEmailModal] = useState({ open: false, initialRegister: false });
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
   const goToOnboarding = () => router.replace('/(auth)/onboarding');
 
   const handleAuthSuccess = () => {
     setPhoneModal(false);
-    setEmailModal(false);
+    setEmailModal({ open: false });
     goToOnboarding();
   };
 
   const handleGoogle = async () => {
-    Alert.alert(
-      'Google Sign-In',
-      'Add your Google OAuth client ID to enable this. Continue as demo?',
-      [
-        { text: 'Continue', onPress: goToOnboarding },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setLoadingGoogle(true);
+    try {
+      Alert.alert(
+        'Google Sign-In',
+        'Google sign-in is not yet configured. Please use Phone or Email to sign in.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    } finally {
+      setLoadingGoogle(false);
+    }
   };
 
   return (
@@ -291,7 +312,7 @@ export default function WelcomeScreen() {
         bounces={false}
       >
         <Animated.View entering={FadeInUp.delay(300).springify().damping(20)} style={styles.ctaBlock}>
-          <GradientButton label="Get started free  ✦" onPress={goToOnboarding} variant="primary" />
+          <GradientButton label="Create Account  ✦" onPress={() => setEmailModal({ open: true, initialRegister: true })} variant="primary" />
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(400).springify().damping(20)} style={styles.divRow}>
@@ -311,13 +332,6 @@ export default function WelcomeScreen() {
             loading={loadingGoogle}
           />
           <SocialButton
-            icon={<Text style={{ fontSize: 16 }}>📘</Text>}
-            label="Facebook"
-            onPress={goToOnboarding}
-            bg="#1877F2"
-            textColor={colors.white}
-          />
-          <SocialButton
             icon={<PhoneIcon />}
             label="Phone"
             onPress={() => setPhoneModal(true)}
@@ -326,8 +340,8 @@ export default function WelcomeScreen() {
           />
           <SocialButton
             icon={<MailIcon />}
-            label="Email"
-            onPress={() => setEmailModal(true)}
+            label="Sign In"
+            onPress={() => setEmailModal({ open: true, initialRegister: false })}
             bg={colors.bg3}
             textColor={colors.t1}
             border
@@ -341,7 +355,7 @@ export default function WelcomeScreen() {
       </ScrollView>
 
       <PhoneModal visible={phoneModal} onClose={() => setPhoneModal(false)} onSuccess={handleAuthSuccess} />
-      <EmailModal visible={emailModal} onClose={() => setEmailModal(false)} onSuccess={handleAuthSuccess} />
+      <EmailModal visible={emailModal} onClose={() => setEmailModal({ open: false })} onSuccess={handleAuthSuccess} />
     </View>
   );
 }

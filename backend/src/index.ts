@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 if (process.env.NODE_ENV === 'production') {
   const criticalKeys = [
@@ -21,7 +24,26 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use(helmet());
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
+const ALLOWED_ORIGINS = [
+  'https://getsano.com',
+  'https://www.getsano.com',
+  'https://sano-admin.vercel.app',
+  // Expo Go / dev tunnels
+  /^https?:\/\/.*\.exp\.direct$/,
+  /^https?:\/\/.*\.ngrok\.io$/,
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow server-to-server (no origin) and mobile native (no origin header)
+    if (!origin) return cb(null, true);
+    const allowed = ALLOWED_ORIGINS.some(o =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    cb(allowed ? null : new Error(`CORS blocked: ${origin}`), allowed);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -81,8 +103,8 @@ const authenticate = async (req: any, res: any, next: any) => {
   try {
     const admin = require('firebase-admin');
     if (admin.apps.length === 0) {
-      console.warn('Firebase Admin not initialized — skipping token verification (UNSAFE)');
-      return next();
+      console.error('Firebase Admin not initialized — rejecting request');
+      return res.status(503).json({ error: 'Service unavailable', message: 'Auth service not configured' });
     }
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
@@ -101,9 +123,12 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
-// Dummy analytics route to prevent 404 spam from mobile app
-app.post('/analytics/batch', (req, res) => {
-  res.status(200).json({ status: 'ok', received: req.body.events?.length || 0 });
+// Protected analytics batch endpoint
+app.post('/analytics/batch', authenticate, (req: any, res) => {
+  const events = req.body.events || [];
+  console.log(`[Analytics] Received ${events.length} events from user ${req.user?.uid || 'anonymous'}`);
+  // In a real prod env, these would be streamed to BigQuery or Mixpanel here
+  res.status(200).json({ status: 'ok', received: events.length });
 });
 
 // Routes — gracefully skip if dependencies missing
@@ -128,7 +153,14 @@ try {
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const paymentsRoutes = require('./routes/payments').default;
-  app.use('/payments', paymentsRoutes);
+  // No top-level authenticate here — /webhook is HMAC-verified; other routes
+  // check req.user individually since Paystack calls webhook without a Firebase token.
+  // The authenticate middleware is applied selectively via express router below.
+  const paymentsAuth = (req: any, res: any, next: any) => {
+    if (req.path === '/webhook') return next(); // HMAC-verified by verifyWebhook
+    authenticate(req, res, next);
+  };
+  app.use('/payments', paymentsAuth, paymentsRoutes);
   console.log('✓ Payments routes loaded');
 } catch (e: any) {
   console.log('⚠ Payments routes skipped:', e.message);
@@ -137,6 +169,15 @@ try {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`SANO API running on port ${PORT}`);
   console.log(`Health: http://0.0.0.0:${PORT}/health`);
+
+  // Keep Render free tier awake — ping /health every 10 minutes
+  if (process.env.SELF_URL) {
+    setInterval(() => {
+      fetch(`${process.env.SELF_URL}/health`)
+        .then(() => console.log('[keep-warm] ping ok'))
+        .catch(e => console.warn('[keep-warm] ping failed:', e.message));
+    }, 10 * 60 * 1000);
+  }
 });
 
 export default app;

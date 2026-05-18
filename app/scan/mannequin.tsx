@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,14 +16,37 @@ import { GradientButton } from '../../src/components/ui/GradientButton';
 import { Card } from '../../src/components/ui/Card';
 import { colors, spacing, fontSize, fontWeight, radius } from '../../src/theme';
 import { useScanStore } from '../../src/store/scanStore';
+import { useProfileStore } from '../../src/store/profileStore';
+
+const FREE_MONTHLY_SCAN_LIMIT = 3;
 
 export default function MannequinScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState<BodyZone | null>(null);
-  const { setSelectedBodyArea } = useScanStore();
+  const { setSelectedBodyArea, scans } = useScanStore();
+  const { subscription } = useProfileStore();
+
+  const scansThisMonth = scans.filter(s => {
+    const ts = (s as any).createdAt?.toDate?.() ?? new Date((s as any).createdAt ?? 0);
+    const now = new Date();
+    return ts.getFullYear() === now.getFullYear() && ts.getMonth() === now.getMonth();
+  }).length;
 
   const handleScan = () => {
     if (!selected) return;
+
+    if (subscription === 'free' && scansThisMonth >= FREE_MONTHLY_SCAN_LIMIT) {
+      Alert.alert(
+        'Monthly limit reached',
+        `Free plan includes ${FREE_MONTHLY_SCAN_LIMIT} scans per month. Upgrade to SANO Plus for unlimited scans.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/features/subscription' as any) },
+        ]
+      );
+      return;
+    }
+
     setSelectedBodyArea(selected);
     router.push({ pathname: '/scan/camera', params: { area: selected } });
   };

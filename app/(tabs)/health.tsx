@@ -69,16 +69,14 @@ function PulsingHeart({ active }: { active: boolean }) {
 }
 
 function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onClose: () => void; onResult: (res: { bpm: number; spo2: number }) => void }) {
-  const { bpm, spo2, isMeasuring, progress, result, startMeasurement, stop } = useHeartRate();
+  const { isMeasuring, progress, result, error, startMeasurement, stop } = useHeartRate();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
   const handleClose = () => { stop(); onClose(); };
 
   React.useEffect(() => {
-    if (result) {
-      onResult(result);
-    }
+    if (result) onResult(result);
   }, [result, onResult]);
 
   const handleStart = async () => {
@@ -86,7 +84,6 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
       const res = await requestPermission();
       if (!res.granted) return;
     }
-    
     startMeasurement(async () => {
       if (cameraRef.current) {
         const video = await cameraRef.current.recordAsync({ maxDuration: 30 });
@@ -95,6 +92,8 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
       throw new Error('Camera not ready');
     });
   };
+
+  const secondsLeft = Math.ceil((1 - progress) * 30);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -110,38 +109,46 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
           <LinearGradient colors={['#160730', '#2d0f54']} style={modal.card}>
             {isMeasuring ? (
               <View style={{ width: 100, height: 100, borderRadius: 50, overflow: 'hidden' }}>
-                <CameraView
-                  ref={cameraRef}
-                  style={{ flex: 1 }}
-                  facing="back"
-                  flash="on"
-                  mode="video"
-                />
+                <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back" flash="on" mode="video" />
               </View>
             ) : (
-              <PulsingHeart active={isMeasuring} />
+              <PulsingHeart active={!!result} />
             )}
 
-            <View style={modal.bpmRow}>
-              <Text style={modal.bpmNum}>{bpm ?? '--'}</Text>
-              <Text style={modal.bpmUnit}>bpm</Text>
-            </View>
-
-            <Text style={modal.spo2}>
-              SpO₂  <Text style={modal.spo2Val}>{spo2 != null ? `${spo2}%` : '--'}</Text>
-            </Text>
-
-            {isMeasuring && (
+            {isMeasuring ? (
               <>
+                <Text style={modal.measuringLabel}>Analysing…</Text>
                 <View style={modal.progressTrack}>
                   <Animated.View style={[modal.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
                 </View>
                 <Text style={modal.hint}>
-                  Hold finger over rear camera · {Math.round((1 - progress) * 30)}s remaining
+                  Hold finger over rear camera · {secondsLeft}s remaining
                 </Text>
+              </>
+            ) : result ? (
+              <>
+                <View style={modal.bpmRow}>
+                  <Text style={modal.bpmNum}>{result.bpm}</Text>
+                  <Text style={modal.bpmUnit}>bpm</Text>
+                </View>
+                <Text style={modal.spo2}>SpO₂  <Text style={modal.spo2Val}>{result.spo2}%</Text></Text>
+              </>
+            ) : (
+              <>
+                <View style={modal.bpmRow}>
+                  <Text style={modal.bpmNum}>--</Text>
+                  <Text style={modal.bpmUnit}>bpm</Text>
+                </View>
+                <Text style={modal.spo2}>SpO₂  <Text style={modal.spo2Val}>--</Text></Text>
               </>
             )}
           </LinearGradient>
+
+          {error && (
+            <View style={modal.errorCard}>
+              <Text style={modal.errorText}>{error}</Text>
+            </View>
+          )}
 
           {result ? (
             <Card variant="tint" style={modal.resultCard}>
@@ -149,12 +156,12 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
               <View style={modal.resultRow}>
                 <View style={modal.resultItem}>
                   <Text style={modal.resultVal}>{result.bpm}</Text>
-                  <Text style={modal.resultLabel}>BPM · Normal</Text>
+                  <Text style={modal.resultLabel}>BPM</Text>
                 </View>
                 <View style={modal.resultDivider} />
                 <View style={modal.resultItem}>
                   <Text style={modal.resultVal}>{result.spo2}%</Text>
-                  <Text style={modal.resultLabel}>SpO₂ · Normal</Text>
+                  <Text style={modal.resultLabel}>SpO₂</Text>
                 </View>
               </View>
               <Text style={modal.disclaimer}>
@@ -164,7 +171,7 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
           ) : (
             <GradientButton
               label={isMeasuring ? 'Measuring…' : '💓  Start Measurement'}
-              onPress={handleStart}
+              onPress={isMeasuring ? undefined : handleStart}
               variant={isMeasuring ? 'outline' : 'primary'}
             />
           )}
@@ -192,6 +199,21 @@ function HeartRateModal({ visible, onClose, onResult }: { visible: boolean; onCl
 export default function HealthScreen() {
   const [bpmModalOpen, setBpmModalOpen] = useState(false);
   const [measurementResult, setMeasurementResult] = useState<{ bpm: number; spo2: number } | null>(null);
+
+  const saveVitals = async (res: { bpm: number; spo2: number }) => {
+    setMeasurementResult(res);
+    if (FIREBASE_READY && auth?.currentUser?.uid) {
+      try {
+        await firestoreService.saveHealthEvent(auth.currentUser.uid, {
+          type: 'heart_rate',
+          value: { bpm: res.bpm, spo2: res.spo2 },
+          confidence: 0.9,
+        });
+      } catch (e) {
+        console.error('Failed to save vitals to cloud:', e);
+      }
+    }
+  };
   
   const [sleepModalOpen, setSleepModalOpen] = useState(false);
   const [stressModalOpen, setStressModalOpen] = useState(false);
@@ -310,7 +332,7 @@ export default function HealthScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      <HeartRateModal visible={bpmModalOpen} onClose={() => setBpmModalOpen(false)} onResult={setMeasurementResult} />
+      <HeartRateModal visible={bpmModalOpen} onClose={() => setBpmModalOpen(false)} onResult={saveVitals} />
       
       {/* Sleep Modal */}
       <Modal visible={sleepModalOpen} animationType="slide" presentationStyle="pageSheet">
@@ -497,12 +519,21 @@ const modal = StyleSheet.create({
   spo2: { fontSize: fontSize.md, color: 'rgba(255,255,255,0.55)' },
   spo2Val: { fontFamily: 'Inter_700Bold', color: colors.white },
 
+  measuringLabel: {
+    fontSize: fontSize.lg, fontFamily: 'Inter_600SemiBold',
+    color: 'rgba(255,255,255,0.7)', letterSpacing: 1,
+  },
   progressTrack: {
     width: '100%', height: 5,
     backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 3, overflow: 'hidden',
   },
   progressFill: { height: '100%', backgroundColor: '#A855F7', borderRadius: 3 },
   hint: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.45)', textAlign: 'center' },
+  errorCard: {
+    backgroundColor: '#FEF2F2', borderRadius: radius.md, padding: spacing.md,
+    borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  errorText: { fontSize: fontSize.sm, color: colors.red, textAlign: 'center', lineHeight: 20 },
 
   resultCard: { gap: spacing.md },
   resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },

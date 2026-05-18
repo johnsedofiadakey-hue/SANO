@@ -163,34 +163,29 @@ export default function ChatScreen() {
     try {
       let reply: string;
       
-      // Try real API
-      try {
-        const { api } = await import('../../src/services/api');
-        const userContext = {
-          userName: userName || 'User',
-          fitzpatrick: fitzpatrick ?? null,
-          skinConcerns,
-          glowScore,
-          cycleDay: currentCycleDay,
-          cyclePhase: currentPhase,
-          latestScan: currentResult
-            ? {
-                condition: currentResult.conditions[0]?.name ?? null,
-                severity: currentResult.conditions[0]?.severity ?? 0,
-                confidence: currentResult.conditions[0]?.confidence ?? 0,
-              }
-            : null,
-          scanCount: scans.length,
-        };
-        const { data } = await api.post<{ response: string }>('/ai/chat', {
-          message: text.trim(),
-          history: messages.map(msg => ({ me: msg.role === 'user', txt: msg.content })),
-          userContext,
-        });
-        reply = data.response;
-      } catch (e: any) {
-        reply = `Error: Failed to connect to AI service. (${e.message || 'Unknown error'})`;
-      }
+      const { sendChatMessage } = await import('../../src/services/aiChat');
+      const userContext = {
+        userName: userName || 'User',
+        fitzpatrick: fitzpatrick ?? null,
+        skinConcerns,
+        glowScore,
+        cycleDay: currentCycleDay,
+        cyclePhase: currentPhase,
+        latestScan: currentResult
+          ? {
+              condition: currentResult.conditions[0]?.name ?? null,
+              severity: currentResult.conditions[0]?.severity ?? 0,
+              confidence: currentResult.conditions[0]?.confidence ?? 0,
+            }
+          : null,
+        scanCount: scans.length,
+      };
+
+      reply = await sendChatMessage(
+        text.trim(),
+        messages.map(msg => ({ me: msg.role === 'user', txt: msg.content })),
+        userContext
+      );
 
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),

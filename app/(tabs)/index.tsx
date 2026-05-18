@@ -102,7 +102,8 @@ export default function HomeScreen() {
   const { scans } = useScanStore();
   const { currentCycleDay, currentPhase } = useCycleStore();
 
-  const displayName = name?.split(' ')[0] || 'Beautiful';
+  const displayName = name?.split(' ')[0] || 'there';
+  const displayGlowScore = glowScore > 0 ? glowScore : '—';
   const tip = TIPS[new Date().getDay() % TIPS.length];
   const phase = PHASE_CONFIG[currentPhase ?? 'follicular'] ?? PHASE_CONFIG.follicular;
 
@@ -140,8 +141,8 @@ export default function HomeScreen() {
             <View style={styles.glowRow}>
               <View style={styles.glowInfo}>
                 <Text style={styles.glowLabel}>GLOW SCORE</Text>
-                <Text style={styles.glowScore}>{glowScore}</Text>
-                <Text style={styles.glowSub}>Looking radiant ✦</Text>
+                <Text style={styles.glowScore}>{displayGlowScore}</Text>
+                <Text style={styles.glowSub}>{glowScore > 0 ? 'Looking radiant ✦' : 'Complete a scan to start'}</Text>
 
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
@@ -163,7 +164,7 @@ export default function HomeScreen() {
 
               <View style={styles.ringBox}>
                 <GradientRing
-                  progress={glowScore / 100}
+                  progress={glowScore > 0 ? glowScore / 100 : 0}
                   size={108}
                   strokeWidth={9}
                   gradientStart="rgba(255,255,255,0.95)"
@@ -171,7 +172,7 @@ export default function HomeScreen() {
                   trackColor="rgba(255,255,255,0.15)"
                 />
                 <View style={styles.ringCenter}>
-                  <Text style={styles.ringNum}>{glowScore}</Text>
+                  <Text style={styles.ringNum}>{displayGlowScore}</Text>
                   <Text style={styles.ringLabel}>/ 100</Text>
                 </View>
               </View>

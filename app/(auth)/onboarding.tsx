@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, borderRadius: radius.full },
 
   viewport: { flex: 1, overflow: 'hidden' },
-  slideRow: { flexDirection: 'row', flex: 1 },
+  slideRow: { flexDirection: 'row', flex: 1, width: width * TOTAL_STEPS },
   slide: { width, flex: 1 },
   slideScroll: {
     paddingHorizontal: spacing.xxl,

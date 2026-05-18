@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Scan, ScanResult } from '../types/scan';
 import { FIREBASE_READY } from '../config/firebase';
 
@@ -15,6 +15,7 @@ interface ScanState {
   setProcessing: (processing: boolean) => void;
   addScan: (scan: Scan) => Promise<void>;
   loadScans: () => Promise<void>;
+  reset: () => Promise<void>;
 }
 
 export const useScanStore = create<ScanState>((set, get) => ({
@@ -31,13 +32,26 @@ export const useScanStore = create<ScanState>((set, get) => ({
     const scans = [scan, ...get().scans];
     set({ scans });
 
-    // Always persist locally first
+    // Always persist locally first. Use AsyncStorage for larger data capacity.
     try {
-      await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(scans));
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(scans));
     } catch (e) {
-      console.error('Failed to persist scans securely:', e);
-      // NOTE: SecureStore has a size limit of 2048 bytes on iOS.
-      // If this fails, we may need to implement a chunked or encrypted AsyncStorage solution.
+      console.error('Failed to persist scans:', e);
+    }
+
+    // Recalculate Glow Score from this scan's conditions
+    try {
+      const { useProfileStore } = await import('./profileStore');
+      const conditions: Array<{ severity?: number; confidence?: number }> =
+        (scan.conditions_detected ?? []) as any;
+      let score = 100;
+      for (const c of conditions) {
+        score -= (c.severity ?? 0) * (c.confidence ?? 1) * 30;
+      }
+      useProfileStore.getState().setGlowScore(score);
+      await useProfileStore.getState().persist();
+    } catch (e) {
+      console.error('Failed to update glow score:', e);
     }
 
     // Sync to Firestore if Firebase is configured
@@ -47,8 +61,17 @@ export const useScanStore = create<ScanState>((set, get) => ({
         const { firestoreService } = await import('../services/firestore');
         const uid = auth?.currentUser?.uid;
         if (uid) {
+          const localUri: string = (scan as any).imageUri ?? '';
+          let imageStoragePath = localUri;
+          if (localUri) {
+            try {
+              imageStoragePath = await firestoreService.uploadScanImage(uid, localUri);
+            } catch (e) {
+              console.error('Firebase Storage upload failed — using local URI:', e);
+            }
+          }
           await firestoreService.saveScan(uid, {
-            imageStoragePath: (scan as any).imageUri ?? '',
+            imageStoragePath,
             skinTone: scan.skin_tone ?? 5,
             conditions: (scan.conditions_detected ?? []) as unknown[],
             area: scan.body_area ?? 'face',
@@ -68,10 +91,10 @@ export const useScanStore = create<ScanState>((set, get) => ({
 
   loadScans: async () => {
     try {
-      const raw = await SecureStore.getItemAsync(STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) set({ scans: JSON.parse(raw) as Scan[] });
     } catch (e) {
-      console.error('Failed to load scans securely:', e);
+      console.error('Failed to load scans:', e);
     }
 
     // Sync from Firestore if Firebase is configured
@@ -83,7 +106,6 @@ export const useScanStore = create<ScanState>((set, get) => ({
         if (uid) {
           const firestoreScans = await firestoreService.getUserScans(uid);
           if (firestoreScans && firestoreScans.length > 0) {
-            // Map firestore scans to Scan type if needed
             set({ scans: firestoreScans as unknown as Scan[] });
           }
         }
@@ -92,11 +114,29 @@ export const useScanStore = create<ScanState>((set, get) => ({
       }
     }
   },
+
+  reset: async () => {
+    try {
+      // Clear local images from FileSystem to prevent storage leaks
+      const { scans } = get();
+      const FileSystem = await import('expo-file-system');
+      await Promise.all(
+        scans
+          .map(s => (s as any).imageUri)
+          .filter(Boolean)
+          .map(uri => FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {}))
+      );
+
+      await AsyncStorage.removeItem(STORAGE_KEY);
+      set({ scans: [], currentResult: null, selectedBodyArea: null });
+    } catch (e) {
+      console.error('Failed to reset scan store:', e);
+    }
+  },
 }));
 
 function getSeason(): string {
   const month = new Date().getMonth() + 1;
-  // Ghana: harmattan Nov-Mar, rainy Apr-Oct
   if (month >= 11 || month <= 3) return 'harmattan';
   return 'rainy';
 }

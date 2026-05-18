@@ -164,13 +164,23 @@ export default function ProcessingScreen() {
       try {
         const result = await uploadScan(imageUri, area);
 
-        if (mounted.current) setCurrentResult(result);
+        if (mounted.current) {
+          setCurrentResult(result);
+          // Add to local history and sync to cloud via store
+          await useScanStore.getState().addScan({
+            ...result,
+            body_area: area,
+            imageUri,
+            conditions_detected: result.conditions
+          } as any);
+        }
 
         await logScan(imageUri, result).catch(() => {});
       } catch (err: any) {
         console.error('Scan upload failed:', err);
         if (mounted.current) {
-          setError(err.message || 'Analysis failed. Please try again.');
+          const msg = err.response?.data?.message ?? err.message ?? 'Analysis failed. Please try again.';
+          setError(msg);
           setProcessing(false);
           if (navTimer.current) clearTimeout(navTimer.current);
           clearInterval(stepInterval);
@@ -181,21 +191,25 @@ export default function ProcessingScreen() {
 
     doUpload();
 
-    // Navigate after 3.2s regardless
+    // Navigate after 3.2s minimum, but only if upload finished
     navTimer.current = setTimeout(() => {
       if (!mounted.current) return;
-      if (error) return; // Don't navigate if there was an error
-
-      clearInterval(stepInterval);
-      clearInterval(progressInterval);
-      setProgress(100);
-      setProcessing(false);
-
-      setTimeout(() => {
-        if (mounted.current) {
+      
+      const checkAndNav = () => {
+        if (error) return;
+        if (useScanStore.getState().currentResult) {
+          clearInterval(stepInterval);
+          clearInterval(progressInterval);
+          setProgress(100);
+          setProcessing(false);
           router.replace({ pathname: '/scan/results', params: { area } });
+        } else {
+          // Poll until upload finishes
+          setTimeout(checkAndNav, 500);
         }
-      }, 300);
+      };
+      
+      checkAndNav();
     }, TOTAL_MS);
 
     return () => {

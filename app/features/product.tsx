@@ -24,22 +24,6 @@ interface Ingredient {
   forDarkSkin?: string;
 }
 
-const MOCK_PRODUCT = {
-  name: 'The Ordinary Niacinamide 10% + Zinc 1%',
-  brand: 'The Ordinary',
-  barcode: '769915191076',
-  authentic: true,
-  compatibility: 82,
-  ingredients: [
-    { name: 'Niacinamide',       purpose: 'Brightening, pore minimising',   rating: 'safe'    as const, forDarkSkin: 'Excellent for hyperpigmentation on dark skin' },
-    { name: 'Zinc PCA',          purpose: 'Oil control, anti-inflammatory',  rating: 'safe'    as const },
-    { name: 'Aqua (Water)',      purpose: 'Solvent',                         rating: 'safe'    as const },
-    { name: 'Tamarind Seed',     purpose: 'Humectant',                       rating: 'safe'    as const },
-    { name: 'Isomalt',           purpose: 'Humectant',                       rating: 'safe'    as const },
-    { name: 'Phenoxyethanol',    purpose: 'Preservative',                    rating: 'caution' as const },
-  ] as Ingredient[],
-};
-
 const RATING_COLOR = { safe: colors.grn, caution: colors.amber, avoid: colors.red };
 const RATING_BG    = { safe: colors.grnLt, caution: colors.amberLt, avoid: colors.redLt };
 
@@ -47,22 +31,24 @@ export default function ProductScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [checked, setChecked] = useState(false);
-  const [product, setProduct] = useState<any>(MOCK_PRODUCT);
+  const [product, setProduct] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { logEvent } = useDataCollection();
 
   const handleCheck = async () => {
     if (!search.trim()) return;
     setLoading(true);
+    setError(null);
     try {
       const response = await api.post('/ai/product', { name: search.trim() });
       setProduct(response.data.product);
       setChecked(true);
       logEvent('product_checked', { name: response.data.product.name });
-    } catch (error) {
-      console.error('Failed to check product:', error);
-      setProduct(MOCK_PRODUCT);
-      setChecked(true);
+    } catch (err) {
+      console.error('Failed to check product:', err);
+      setError('Could not analyse this product. Please check your connection and try again.');
+      setChecked(false);
     } finally {
       setLoading(false);
     }
@@ -100,7 +86,13 @@ export default function ProductScreen() {
 
         <GradientButton label="Check product" onPress={handleCheck} variant="primary" />
 
-        {checked && (
+        {error && (
+          <Card variant="white" style={{ padding: spacing.md }}>
+            <Text style={{ color: colors.red, fontSize: fontSize.sm, textAlign: 'center' }}>{error}</Text>
+          </Card>
+        )}
+
+        {checked && product && (
           <>
             {/* Authenticity */}
             <Card variant="tint" style={styles.authCard}>

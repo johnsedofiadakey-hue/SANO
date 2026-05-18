@@ -3,8 +3,8 @@ import {
   addDoc, updateDoc, query, where, orderBy,
   limit, onSnapshot, serverTimestamp,
 } from 'firebase/firestore';
-import { db, DEMO_MODE } from '../config/firebase';
-import { MOCK_SCAN_HISTORY, MOCK_VITALS, MOCK_CYCLE } from '../data/mockData';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, DEMO_MODE } from '../config/firebase';
 
 // ── Collection names ──────────────────────────────────────────────────────────
 const C = {
@@ -23,6 +23,7 @@ export const firestoreService = {
   // ── User profile ────────────────────────────────────────────────────────────
 
   saveUserProfile: async (uid: string, profile: {
+    name?: string;
     region?: string;
     fitzpatrick?: number;
     primaryConcern?: string;
@@ -43,6 +44,17 @@ export const firestoreService = {
     if (!db) return null;
     const snap = await getDoc(doc(db, C.users, uid));
     return snap.exists() ? snap.data() : null;
+  },
+
+  // ── Storage ─────────────────────────────────────────────────────────────────
+
+  uploadScanImage: async (uid: string, imageUri: string): Promise<string> => {
+    if (DEMO_MODE || !storage) return imageUri;
+    const storageRef = ref(storage, `users/${uid}/scans/${Date.now()}.jpg`);
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
+    return getDownloadURL(storageRef);
   },
 
   // ── Scans ───────────────────────────────────────────────────────────────────

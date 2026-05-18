@@ -45,8 +45,9 @@ export const authService = {
   },
 
   sendMagicLink: async (email: string): Promise<void> => {
+    const callbackUrl = process.env.EXPO_PUBLIC_MAGIC_LINK_URL ?? 'https://getsano.com/auth/email-callback';
     await sendSignInLinkToEmail(auth, email, {
-      url: 'https://getsano.com/auth/email-callback',
+      url: callbackUrl,
       handleCodeInApp: true,
     });
   },

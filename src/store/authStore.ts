@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { User } from 'firebase/auth';
 import { authService } from '../services/auth';
+import { useProfileStore } from './profileStore';
+import { useScanStore } from './scanStore';
+import { cancelAllNotifications } from '../services/notifications';
 
 interface AuthState {
   user: User | null;
@@ -19,7 +22,16 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     set({ loading: true });
-    await authService.signOut();
-    set({ user: null, loading: false });
+    try {
+      // Clear all local stores and cancel notifications on logout
+      await Promise.allSettled([
+        authService.signOut(),
+        useProfileStore.getState().reset(),
+        useScanStore.getState().reset(),
+        cancelAllNotifications(),
+      ]);
+    } finally {
+      set({ user: null, loading: false });
+    }
   },
 }));
