@@ -131,7 +131,7 @@ export default function ChatScreen() {
   const { currentResult, scans } = useScanStore();
   const { fitzpatrick, skinConcerns, glowScore, name: userName } = useProfileStore();
   const { currentCycleDay, currentPhase } = useCycleStore();
-  const { latestHR } = useHealthData();
+  const { data: healthData } = useHealthData();
   const { logEvent } = useDataCollection();
 
   const topCondition = currentResult?.conditions?.[0]?.name;
@@ -173,7 +173,7 @@ export default function ChatScreen() {
         glowScore,
         cycleDay: currentCycleDay,
         cyclePhase: currentPhase,
-        heartRate: latestHR ?? null,
+        heartRate: healthData.latestHR ?? null,
         latestScan: currentResult
           ? {
               condition: currentResult.conditions[0]?.name ?? null,
