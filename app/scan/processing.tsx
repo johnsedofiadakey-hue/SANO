@@ -138,7 +138,7 @@ export default function ProcessingScreen() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
-  const navTimer = useRef<NodeJS.Timeout>();
+  const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { setCurrentResult, setProcessing } = useScanStore();
   const { logScanCompleted: logScan } = useDataCollection();

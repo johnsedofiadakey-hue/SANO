@@ -41,7 +41,7 @@ export function useHeartRate() {
       const videoUri = await onRecord();
 
       const videoBase64 = await FileSystem.readAsStringAsync(videoUri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       const response = await api.post('/ai/heartrate', { video_base64: videoBase64 });

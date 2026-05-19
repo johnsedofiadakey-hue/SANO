@@ -36,6 +36,7 @@ export async function scheduleDailyScanReminder(): Promise<string | null> {
       data: { route: '/scan/mannequin' },
     },
     {
+      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
       hour: 8,
       minute: 30,
       repeats: true,
@@ -52,7 +53,8 @@ export async function scheduleWeeklySummary(): Promise<string | null> {
       data: { route: '/features/dashboard' },
     },
     {
-      weekday: 1, // Sunday
+      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      weekday: 1,
       hour: 19,
       minute: 0,
       repeats: true,
@@ -72,7 +74,7 @@ export async function scheduleCycleAlert(cycleStartDate: Date): Promise<string |
       body: "Progesterone peak incoming — more sebum, more breakout risk. We've got tips ready.",
       data: { route: '/features/cycle' },
     },
-    day20
+    { type: Notifications.SchedulableTriggerInputTypes.DATE, date: day20 }
   );
 }
 
@@ -87,7 +89,7 @@ export async function scheduleStreakReminder(streakDays: number): Promise<string
       body: 'You\'re on a roll. One quick scan keeps your progress going.',
       data: { route: '/scan/mannequin' },
     },
-    tomorrow
+    { type: Notifications.SchedulableTriggerInputTypes.DATE, date: tomorrow }
   );
 }
 
