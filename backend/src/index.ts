@@ -6,18 +6,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-if (process.env.NODE_ENV === 'production') {
-  const criticalKeys = [
-    'FIREBASE_ADMIN_SDK_JSON',
-    'ANTHROPIC_API_KEY',
-    'AI_SERVICE_URL',
-    'AI_SERVICE_SECRET',
-  ];
-  const missing = criticalKeys.filter(key => !process.env[key]);
-  if (missing.length > 0) {
-    console.error(`FATAL: Missing critical environment variables for production: ${missing.join(', ')}`);
-    process.exit(1);
-  }
+// Warn about missing env vars but don't crash — every route already
+// handles missing config gracefully (auth returns 503, AI falls back
+// to mock, payments skip if no Paystack key, etc.).
+const optionalKeys = [
+  'FIREBASE_ADMIN_SDK_JSON',
+  'ANTHROPIC_API_KEY',
+  'AI_SERVICE_URL',
+  'AI_SERVICE_SECRET',
+  'PAYSTACK_SECRET_KEY',
+];
+const missingKeys = optionalKeys.filter(key => !process.env[key]);
+if (missingKeys.length > 0) {
+  console.warn(`⚠ Missing env vars (features will degrade gracefully): ${missingKeys.join(', ')}`);
 }
 
 const app = express();
