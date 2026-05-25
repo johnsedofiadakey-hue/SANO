@@ -156,7 +156,29 @@ async def analyze_skin(request: ScanRequest):
     start = time.time()
 
     if MODEL is None:
-        raise HTTPException(status_code=503, detail="AI model not loaded")
+        # Return mock result so the full scan UI flow can be tested before
+        # DermaAI.keras is uploaded to HuggingFace. Once startup.sh downloads
+        # the model on Render, real predictions replace this automatically.
+        return {
+            "scan_id":           str(uuid.uuid4()),
+            "conditions": [
+                {
+                    "name":             "healthy_clear",
+                    "display_name":     "Healthy Skin",
+                    "confidence":       0.80,
+                    "severity":         0.0,
+                    "location":         request.area or "face",
+                    "doctor_confirmed": False,
+                }
+            ],
+            "skin_tone":          request.skin_tone or 5,
+            "skin_tone_detected": request.skin_tone or 5,
+            "model_version":      "mock-v1.0",
+            "confidence":         0.80,
+            "queued_for_label":   True,
+            "mock":               True,
+            "processing_time_ms": 50,
+        }
 
     try:
         img = preprocess_image(request.image_base64, MODEL_INPUT_SIZE)

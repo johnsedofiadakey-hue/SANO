@@ -58,3 +58,9 @@ sano-ai/models/*.keras
 sano-ai/.venv/
 sano-ai/venv/
 .aider*
+
+# AI model files — too large for GitHub (>100 MB). Upload to HuggingFace.
+*.keras
+*.tflite
+*.h5
+sano-ai/models/
