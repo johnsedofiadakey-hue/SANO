@@ -22,3 +22,5 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: NODE_ENV
+        value: production

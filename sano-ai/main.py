@@ -18,7 +18,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://sano-s32p.onrender.com"],
+    allow_origins=["https://sano-api.onrender.com", "https://sano-s32p.onrender.com"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

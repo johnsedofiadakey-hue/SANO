@@ -17,7 +17,6 @@ fi
 if [ -f "models/DermaAI.tflite" ]; then
   echo "✓ DermaAI.tflite ready ($(du -sh models/DermaAI.tflite | cut -f1))"
 else
-  # Keras fallback
   if [ ! -f "models/DermaAI.keras" ]; then
     echo "📥 DermaAI.keras not found — downloading from Hugging Face..."
     curl -L --fail -o models/DermaAI.keras \
@@ -27,7 +26,7 @@ else
   if [ -f "models/DermaAI.keras" ]; then
     echo "✓ DermaAI.keras ready ($(du -sh models/DermaAI.keras | cut -f1))"
   else
-    echo "⚠  No model found — running in mock mode until next restart"
+    echo "⚠  No model found — service will start in mock mode (real predictions need DermaAI on HuggingFace)"
   fi
 fi
 

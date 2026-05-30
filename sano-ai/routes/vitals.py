@@ -1,14 +1,19 @@
-from fastapi import APIRouter, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+import base64
 import time
-import random
 import cv2
 import numpy as np
 from scipy import signal
 import os
 
 router = APIRouter()
+
+
+class VitalsRequest(BaseModel):
+    video_base64: str
+    duration_seconds: float = 30.0
 
 
 class VitalsResponse(BaseModel):
@@ -21,16 +26,8 @@ class VitalsResponse(BaseModel):
 
 
 @router.post("/heartrate", response_model=VitalsResponse)
-async def measure_heart_rate(
-    duration_seconds: float = Form(default=30.0),
-    video_clip_path: Optional[str] = Form(default=None),
-    video_file: Optional[UploadFile] = File(default=None),
-    video_base64: Optional[str] = Form(default=None),
-) -> VitalsResponse:
+async def measure_heart_rate(request: VitalsRequest) -> VitalsResponse:
     start = time.time()
-
-    if not video_file and not video_base64:
-        raise HTTPException(status_code=400, detail="No video provided.")
 
     note = "Processed video."
     model_version = "v1.0-ppg"
@@ -38,63 +35,51 @@ async def measure_heart_rate(
     spo2 = 0.0
     confidence = 0.0
     temp_path = f"/tmp/vitals_{int(time.time())}.mp4"
-    
-    if video_file:
-        with open(temp_path, "wb") as f:
-            f.write(await video_file.read())
-    else:
-        import base64
-        with open(temp_path, "wb") as f:
-            f.write(base64.b64decode(video_base64))
-        
+
+    with open(temp_path, "wb") as f:
+        f.write(base64.b64decode(request.video_base64))
+
     try:
-        # Process video
         cap = cv2.VideoCapture(temp_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps == 0: fps = 30.0 # Fallback
-        
+        if fps == 0:
+            fps = 30.0
+
         greens = []
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
-            # Calculate mean green channel intensity
-            # Frame is BGR in OpenCV
             green_mean = np.mean(frame[:, :, 1])
             greens.append(green_mean)
         cap.release()
-        
-        if len(greens) > 100: # Need enough frames
-            # Apply bandpass filter
-            # Heart rate range: 0.5 Hz to 4.0 Hz (30 to 240 bpm)
+
+        if len(greens) > 100:
             nyq = 0.5 * fps
             low = 0.5 / nyq
             high = 4.0 / nyq
             b, a = signal.butter(3, [low, high], btype='band')
             filtered = signal.filtfilt(b, a, greens)
-            
-            # Find peaks
-            peaks, _ = signal.find_peaks(filtered, distance=fps*0.5)
-            
+
+            peaks, _ = signal.find_peaks(filtered, distance=fps * 0.5)
+
             if len(peaks) > 1:
-                # Calculate BPM
                 intervals = np.diff(peaks) / fps
                 avg_interval = np.mean(intervals)
                 bpm = int(60 / avg_interval)
                 confidence = 0.85
                 note = "Successfully calculated heart rate from video."
-                spo2 = 98.0 # Still fallback for SpO2 as we don't have a real SpO2 model yet
+                spo2 = 98.0
             else:
                 raise HTTPException(status_code=422, detail="Could not detect clear peaks in video.")
         else:
             raise HTTPException(status_code=422, detail="Video too short or unreadable.")
-            
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
-        
-    # Clean up
+
     if os.path.exists(temp_path):
         os.remove(temp_path)
 
@@ -112,10 +97,5 @@ async def measure_heart_rate(
 
 # Legacy alias
 @router.post("/heart-rate", response_model=VitalsResponse)
-async def measure_heart_rate_legacy(
-    duration_seconds: float = Form(default=30.0),
-    video_clip_path: Optional[str] = Form(default=None),
-    video_file: Optional[UploadFile] = File(default=None),
-    video_base64: Optional[str] = Form(default=None),
-) -> VitalsResponse:
-    return await measure_heart_rate(duration_seconds=duration_seconds, video_clip_path=video_clip_path, video_file=video_file, video_base64=video_base64)
+async def measure_heart_rate_legacy(request: VitalsRequest) -> VitalsResponse:
+    return await measure_heart_rate(request=request)

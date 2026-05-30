@@ -83,18 +83,21 @@ router.post('/heartrate', async (req, res) => {
 
   try {
     console.log(`Forwarding vitals to AI service at ${AI_SERVICE_URL}/analyze/heartrate`);
-    
-    const params = new URLSearchParams();
-    params.append('video_base64', video_base64);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
 
     const response = await fetch(`${AI_SERVICE_URL}/analyze/heartrate`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         'X-AI-Secret-Token': process.env.AI_SERVICE_SECRET || '',
       },
-      body: params.toString(),
+      body: JSON.stringify({ video_base64 }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();

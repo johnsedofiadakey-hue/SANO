@@ -107,7 +107,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     console.log(`Forwarding scan to AI service at ${AI_SERVICE_URL}/analyze/skin`);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds — allow for Render free-tier cold start
 
     const response = await fetch(`${AI_SERVICE_URL}/analyze/skin`, {
       method: 'POST',

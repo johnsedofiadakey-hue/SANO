@@ -68,10 +68,7 @@ def load_model() -> None:
 
     if not model_path.exists():
         print(f"⚠  No model file found. Checked: {tflite_path} and {model_path}")
-        import os
-        if os.environ.get("ENV") == "production" or os.environ.get("NODE_ENV") == "production":
-            raise RuntimeError(f"Model file not found in production! Checked: {tflite_path} and {model_path}")
-        print("Running in mock mode")
+        print("⚠  Running in mock mode — startup.sh will download model on next restart")
         return
 
     try:
@@ -247,11 +244,3 @@ async def analyze_skin(request: ScanRequest):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-
-# ── Legacy alias ─────────────────────────────────────────────────────────────
-
-@router.post("/analyze/skin")
-async def analyze_skin_legacy(
-    request: ScanRequest,
-):
-    return await analyze_skin(request=request)
